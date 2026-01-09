@@ -1,4 +1,5 @@
 using System.ComponentModel.Design.Serialization;
+using System.Reflection.Metadata;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.VisualBasic;
@@ -28,10 +29,15 @@ public enum AID : uint
 }
 sealed class Roar(BossModule module) : Components.RaidwideCast(module, (uint)AID.Roar);
 sealed class ThinIce(BossModule module) : Components.ThinIce(module, 6f, createforbiddenzones: true, statusID: (uint)SID.ThinIce, stopAtWall: true);
-sealed class Blaze(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Blaze, new AOEShapeCircle(6f));
 sealed class Burn(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Burn, new AOEShapeCircle(8f));
 sealed class BreathWing(BossModule module) : Components.SimpleKnockbacks(module, (uint)AID.BreathWing, 10f, kind: Kind.DirForward, stopAtWall: true);
-
+sealed class WyrmTail(BossModule module) : Components.SingleTargetCasts(module, (uint)AID.WyrmTail);
+sealed class Downburst(BossModule module) : Components.Voidzone(module, (uint)AID.Downburst, 6f);
+sealed class TwinBolt(BossModule module) : Components.SingleTargetCast(module, (uint)AID.TwinBolt);
+sealed class Blaze(BossModule module) : Components.StackTogether(module, iconId: 96, activationDelay: 5.0f, radius: 6f);
+sealed class Levinbolt(BossModule module) : Components.GenericStackSpread(module, (uint)AID.Levinbolt, 6f);
+sealed class Clamp(BossModule module) : Components.Cleave(module, (uint)AID.Clamp, new AOEShapeRect(9f, 10f));
+sealed class Flame(BossModule module) : Components.RaidwideCast(module, (uint)AID.Flame);
 
 public enum SID : uint
 {
@@ -52,7 +58,14 @@ sealed class O1NAlteRoiteStates : StateMachineBuilder
             .ActivateOnEnter<Roar>()
             .ActivateOnEnter<Blaze>()
             .ActivateOnEnter<BreathWing>()
-            .ActivateOnEnter<ThinIce>();
+            .ActivateOnEnter<ThinIce>()
+            .ActivateOnEnter<WyrmTail>()
+            .ActivateOnEnter<Downburst>()
+            .ActivateOnEnter<TwinBolt>()
+            .ActivateOnEnter<Blaze>()
+            .ActivateOnEnter<Levinbolt>()
+            .ActivateOnEnter<Clamp>()
+            .ActivateOnEnter<Flame>();
     }
 }
 
