@@ -9,9 +9,15 @@ sealed class O1NAlteRoiteStates : StateMachineBuilder
             .ActivateOnEnter<ThinIce>()
             .ActivateOnEnter<Charybdis>()
             .ActivateOnEnter<TwinBoltTetheredBuster>()
-            .ActivateOnEnter<Burn>()
-            .ActivateOnEnter<FireOrbBurnFast>()
-            .ActivateOnEnter<FireOrbBurnSlow>()
+            .ActivateOnEnter<BreathwingKB>()
+            .ActivateOnEnter<ClampAOE>()
+            .ActivateOnEnter<ClampKB>()
+            .ActivateOnEnter<DownburstKB>()
+            .ActivateOnEnter<DownburstTornado>()
+            .ActivateOnEnter<FireOrbsTimedFollowAOE>()
+            .ActivateOnEnter<BlazeStack>()
+
+
 ;
     }
 }
