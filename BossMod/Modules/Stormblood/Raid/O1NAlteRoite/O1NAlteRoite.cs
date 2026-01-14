@@ -13,7 +13,7 @@ sealed class Charybdis(BossModule module) : Components.RaidwideCast(module, (uin
 ////////////////////////
 // AOE stuff         //
 ///////////////////////
-sealed class ClampAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Clamp, new AOEShapeRect(9f, 5f));
+sealed class ClampAOE(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Clamp, new AOEShapeRect(9f + module.PrimaryActor.HitboxRadius, 5f));
 
 ////////////////////////
 // Twinbolt stuff    //
@@ -30,7 +30,7 @@ sealed class ClampKB(BossModule module)
         (uint)AID.Clamp,
         distance: 20f,
         kind: Components.GenericKnockback.Kind.DirForward,
-        shape: new AOEShapeRect(9f, 5f)); // width 10 => halfwidth 5
+        shape: new AOEShapeRect(9f + module.PrimaryActor.HitboxRadius, 5f)); // width 10 => halfwidth 5
 
 sealed class BreathwingKB(BossModule module)
     : Components.SimpleKnockbacks(module, (uint)AID.BreathWing, distance: 20f, kind: Components.GenericKnockback.Kind.DirForward);
@@ -60,8 +60,16 @@ sealed class DownburstTornado(BossModule module) : Components.GenericAOEs(module
 ////////////////////////
 // Stack + Spread    //
 ///////////////////////
-sealed class BlazeStack(BossModule module)
-    : Components.StackWithCastTargets(module, (uint)AID.Blaze, radius: 6f);
+sealed class BlazeLevinStackSpread(BossModule module)
+    : Components.IconStackSpread(
+        module,
+        stackIcon: 62,
+        spreadIcon: 108,
+        stackAID: (uint)AID.Blaze,
+        spreadAID: (uint)AID.Levinbolt,
+        stackRadius: 6f,
+        spreadRadius: 6f,
+        activationDelay: 5.0);
 
 ////////////////////////
 // Module Stuff       //

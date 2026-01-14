@@ -15,7 +15,8 @@ sealed class O1NAlteRoiteStates : StateMachineBuilder
             .ActivateOnEnter<DownburstKB>()
             .ActivateOnEnter<DownburstTornado>()
             .ActivateOnEnter<FireOrbsTimedFollowAOE>()
-            .ActivateOnEnter<BlazeStack>()
-            .ActivateOnEnter<TwinBoltAOE>();
+            .ActivateOnEnter<TwinBoltAOE>()
+            .ActivateOnEnter<BlazeLevinStackSpread>()
+;
     }
 }

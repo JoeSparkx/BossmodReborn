@@ -49,7 +49,7 @@ public enum TetherID : uint
 
 public enum IconID : uint
 {
-    _Gen_Icon_m0420tar_a0k = 108, // player->self
-    _Gen_Icon_com_share0c = 62, // player->self
+    LevinSpread = 108, // player->self
+    StackBlaze = 62, // player->self
 }
 
