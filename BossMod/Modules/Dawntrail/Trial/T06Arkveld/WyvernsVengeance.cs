@@ -206,7 +206,7 @@ sealed class WyvernsWealTurnAssist(BossModule module) : Components.GenericAOEs(m
 
     }
 
-  private Angle WallAlignedRotation(WPos bossPos, uint iconID)
+private Angle WallAlignedRotation(WPos bossPos, uint iconID)
 {
     var c = Module.Center;
     var d = bossPos - c;
