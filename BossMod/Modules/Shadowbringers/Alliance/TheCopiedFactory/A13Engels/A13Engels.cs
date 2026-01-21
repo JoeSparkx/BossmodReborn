@@ -46,7 +46,7 @@ class SurfaceMissile2(BossModule module) : Components.SimpleAOEs(module, (uint)A
 
 class GuidedMissile(BossModule module) : Components.StandardChasingAOEs(module, 6f, (uint)AID.GuidedMissile2, (uint)AID.GuidedMissile3, 5.5f, 1d, 4, true, (uint)IconID.GuidedMissile);
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9147)]
+[ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team, JoeSparkx", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9147)]
 public class A13MarxEngels(WorldState ws, Actor primary) : BossModule(ws, primary, StartingArenaCenter, StartingBounds)
 {
     public static readonly WPos TransitionSpot = new(900, 697);
