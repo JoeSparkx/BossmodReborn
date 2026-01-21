@@ -4,6 +4,9 @@ class A11CommandModelStates : StateMachineBuilder
 {
     public A11CommandModelStates(BossModule module) : base(module)
     {
-        TrivialPhase();
+        TrivialPhase()
+        .ActivateOnEnter<ForcefulImpact>()
+        .ActivateOnEnter<EnergyAssault>()
+        .ActivateOnEnter<ClangingBlow>();
     }
 }
