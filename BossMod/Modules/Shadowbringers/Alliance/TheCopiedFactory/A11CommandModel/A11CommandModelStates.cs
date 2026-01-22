@@ -12,6 +12,8 @@ class A11CommandModelStates : StateMachineBuilder
         .ActivateOnEnter<CentrifugalSpin>()
         .ActivateOnEnter<Shockwave>()
         .ActivateOnEnter<EnergyBombardment>()
+        .ActivateOnEnter<EnergyOrbs>()
+        .ActivateOnEnter<SidestrikingSpin>()
 ;
     }
 }
