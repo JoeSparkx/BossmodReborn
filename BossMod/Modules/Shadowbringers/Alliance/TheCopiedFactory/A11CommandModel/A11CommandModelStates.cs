@@ -7,6 +7,11 @@ class A11CommandModelStates : StateMachineBuilder
         TrivialPhase()
         .ActivateOnEnter<ForcefulImpact>()
         .ActivateOnEnter<EnergyAssault>()
-        .ActivateOnEnter<ClangingBlow>();
+        .ActivateOnEnter<ClangingBlow>()
+        .ActivateOnEnter<EnergyRing>()
+        .ActivateOnEnter<CentrifugalSpin>()
+        .ActivateOnEnter<Shockwave>()
+        .ActivateOnEnter<EnergyBombardment>()
+;
     }
 }
