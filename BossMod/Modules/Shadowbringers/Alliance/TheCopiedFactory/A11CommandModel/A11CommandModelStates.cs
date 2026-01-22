@@ -14,6 +14,9 @@ class A11CommandModelStates : StateMachineBuilder
         .ActivateOnEnter<EnergyBombardment>()
         .ActivateOnEnter<EnergyOrbs>()
         .ActivateOnEnter<SidestrikingSpin>()
+        .ActivateOnEnter<SystematicTargeting>()
+        .ActivateOnEnter<SystematicSuppression>()
+        .ActivateOnEnter<SystematicAirstrike>()
 ;
     }
 }

@@ -5,7 +5,7 @@ namespace BossMod.Shadowbringers.Alliance.A11CommandModel;
 sealed class ClangingBlow(BossModule module) : SingleTargetCast(module, (uint)AID.ClangingBlow, hint: "Tankbuster", damageType: AIHints.PredictedDamageType.Tankbuster);
 sealed class ForcefulImpact(BossModule module) : RaidwideCast(module, (uint)AID.ForcefulImpact, hint: "Raidwide");
 sealed class EnergyAssault(BossModule module) : SimpleAOEGroups(module,
-[(uint)AID.EnergyAssault1, (uint)AID.EnergyAssault2], new AOEShapeCone(60f, 30f.Degrees()));
+[(uint)AID.EnergyAssault1, (uint)AID.EnergyAssault2], new AOEShapeCone(60f, 40f.Degrees()));
 sealed class EnergyBombardment(BossModule module) : SimpleAOEs(module, (uint)AID.EnergyBombardment2, new AOEShapeCircle(4f));
 sealed class EnergyRing(BossModule module) : ConcentricAOEs(module,
 [
@@ -113,33 +113,181 @@ ignoreImmunes: true,
 kind: Kind.AwayFromOrigin,
 stopAtWall: false);
 
-sealed class EnergyOrbs(BossModule module) : Voidzone(module, 1.5f, GetEnergyBombs, 2.5f)
+// Systematic Siege projectiles (SJSM2): show hit circle + predicted travel capsule based on motion delta.
+// Remove immediately on impact (EnergyBomb event cast) so circles don't linger.
+sealed class EnergyOrbs(BossModule module) : GenericAOEs(module, default, "Avoid energy orbs!")
 {
-    private static Actor[] GetEnergyBombs(BossModule module)
+    private const float Radius = 1.5f;
+    private const float PredictLen = 8.0f;      // tune as desired
+    private const float MinMoveForDir = 0.35f;  // don't trust direction until it moved
+
+    private readonly Dictionary<ulong, WPos> _prevPos = [];
+    private readonly HashSet<ulong> _remove = []; // actor instanceIDs to stop showing (impact)
+    private readonly AOEShapeCircle _circle = new(Radius);
+    private readonly AOEShapeCapsule _capsule = new(Radius, PredictLen);
+
+    private IEnumerable<Actor> Sources()
     {
-        var enemies = module.Enemies((uint)OID.SJSM2);
-        var count = enemies.Count;
-        var index = 0;
-        var SJSM2 = new Actor[count];
-        for (var i = 0; i < count; i++)
+        foreach (var a in Module.Enemies((uint)OID.SJSM2))
         {
-            var z = enemies[i];
-            if (z.EventState != 7)
+            // If we've seen it impact, stop drawing it even if the actor lingers client-side
+            if (_remove.Contains(a.InstanceID))
+                continue;
+
+            // Still keep normal cleanup (helps when actors truly vanish)
+            if (a.IsDestroyed || a.IsDead || a.EventState == 7)
+                continue;
+
+            yield return a;
+        }
+    }
+
+    public override void Update()
+    {
+        // Track positions for currently relevant sources and purge stale cached entries.
+        var alive = new HashSet<ulong>();
+        foreach (var s in Sources())
+        {
+            alive.Add(s.InstanceID);
+            if (!_prevPos.ContainsKey(s.InstanceID))
+                _prevPos[s.InstanceID] = s.Position;
+        }
+
+        if (_prevPos.Count > 0)
+        {
+            var toRemove = new List<ulong>();
+            foreach (var id in _prevPos.Keys)
+                if (!alive.Contains(id))
+                    toRemove.Add(id);
+            foreach (var id in toRemove)
+                _prevPos.Remove(id);
+        }
+
+        // Optional: if the actor truly despawned, also forget "remove" flags over time.
+        // (Not strictly necessary; instance IDs won't be reused in a fight.)
+    }
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+    {
+        var aoes = new List<AOEInstance>();
+
+        foreach (var s in Sources())
+        {
+            // Always show the true danger circle
+            aoes.Add(new(_circle, s.Position, default));
+
+            // Predict direction from movement delta (not Rotation)
+            if (_prevPos.TryGetValue(s.InstanceID, out var prev))
             {
-                SJSM2[index++] = z;
+                var delta = s.Position - prev;
+                if (delta.Length() >= MinMoveForDir)
+                {
+                    var rot = Angle.FromDirection(delta.Normalized());
+                    aoes.Add(new(_capsule, s.Position, rot));
+                }
+
+                _prevPos[s.InstanceID] = s.Position;
+            }
+            else
+            {
+                _prevPos[s.InstanceID] = s.Position;
             }
         }
-        return SJSM2;
 
+        return CollectionsMarshal.AsSpan(aoes);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        foreach (var s in Sources())
+        {
+            hints.AddForbiddenZone(new SDCircle(s.Position, Radius), DateTime.MaxValue);
+
+            if (_prevPos.TryGetValue(s.InstanceID, out var prev))
+            {
+                var delta = s.Position - prev;
+                if (delta.Length() >= MinMoveForDir)
+                {
+                    var rot = Angle.FromDirection(delta.Normalized());
+                    hints.AddForbiddenZone(new SDCapsule(s.Position, rot, PredictLen, Radius), DateTime.MaxValue);
+                }
+            }
+        }
+    }
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        // Orbs "dissolve on impact": when they deal damage, stop showing that orb immediately.
+        if ((AID)spell.Action.ID == AID.EnergyBomb && caster.OID == (uint)OID.SJSM2)
+        {
+            _remove.Add(caster.InstanceID);
+            _prevPos.Remove(caster.InstanceID);
+        }
     }
 }
 
-sealed class SidestrikingSpin(BossModule module) : Components.SimpleAOEGroups(
+sealed class SidestrikingSpin(BossModule module) : SimpleAOEGroups(
     module,
     [(uint)AID.SidestrikingSpin2, (uint)AID.SidestrikingSpin3],
-    new AOEShapeRect(6, 15, 6),   // total length 30, width 12
+    new AOEShapeRect(30, 6),   // range 30, width 12; origin at "start" of rect
     expectedNumCasters: 2
 );
+
+sealed class SystematicTargeting(BossModule module) : BaitAwayIcon(
+    module,
+    new AOEShapeRect(70f, 2f),
+    (uint)IconID.Icon164,
+    (uint)AID.HighPoweredLaser,
+    activationDelay: 2.5f,
+    centerAtTarget: false,
+    source: null
+)
+{
+    public override Actor? BaitSource(Actor target)
+        => Module.Enemies((uint)OID.SJSM1).FirstOrDefault() ?? Module.PrimaryActor;
+}
+sealed class SystematicSuppression(BossModule module) : SimpleAOEGroups(module, [(uint)AID.HighCaliberLaser1, (uint)AID.HighCaliberLaser2],
+new AOEShapeRect(70, 24));
+
+sealed class SystematicAirstrike(BossModule module) : GenericAOEs(module, default, "GTFO from airstrike!")
+{
+    private static readonly AOEShapeCircle _shape = new(5);
+    private readonly List<AOEInstance> _aoes = [];
+
+    // tune this: how long you want the warning circle to remain visible / considered dangerous for AI
+    private const float PersistSeconds = 1.2f;
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+        => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if ((AID)spell.Action.ID == AID.AirToSurfaceEnergy)
+        {
+            // event is instant; place circle at caster position (or spell.TargetXZ if you find that’s more accurate in this fight)
+            var pos = caster.Position;
+            var expire = WorldState.FutureTime(PersistSeconds);
+            _aoes.Add(new(_shape, pos, default, expire));
+        }
+    }
+
+    public override void Update()
+    {
+        // remove expired circles so they don't linger
+        var now = WorldState.CurrentTime;
+        for (int i = _aoes.Count - 1; i >= 0; --i)
+            if (_aoes[i].Activation <= now)
+                _aoes.RemoveAt(i);
+    }
+
+    public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
+    {
+        // Use forbidden zones until expiry so AI actively avoids being under the adds when they fire.
+        // If you prefer softer behavior, use TemporaryObstacles instead.
+        foreach (ref readonly var a in ActiveAOEs(slot, actor))
+            hints.AddForbiddenZone(new SDCircle(a.Origin, 5), a.Activation);
+    }
+}
 
 [ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team, JoeSparkx", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9141)] //Other service models 9142 and 9155, nonservice model 9923
 public class A11CommandModel(WorldState ws, Actor primary) : BossModule(ws, primary, new(-500, -10), new ArenaBoundsSquare(20));
