@@ -46,16 +46,13 @@ sealed class EnergyRing(BossModule module) : ConcentricAOEs(module,
     }
 }
 sealed class CentrifugalSpin(BossModule module) :
-SimpleKnockbacks(module,
+SimpleAOEs(module,
 (uint)AID.CentrifugalSpin2,
-distance: 5f,
-ignoreImmunes: true,
-shape: new AOEShapeRect(30f + module.PrimaryActor.HitboxRadius, 8f),
-kind: Kind.AwayFromOrigin);
+shape: new AOEShapeRect(30f + module.PrimaryActor.HitboxRadius, 8f, 15f));
 sealed class Shockwave(BossModule module) :
 SimpleKnockbacks(module,
 (uint)AID.Shockwave,
-distance: 20f,
+distance: 15f,
 ignoreImmunes: true,
 kind: Kind.AwayFromOrigin);
 
