@@ -4,6 +4,10 @@ class A12HobbesStates : StateMachineBuilder
 {
     public A12HobbesStates(BossModule module) : base(module)
     {
-        TrivialPhase();
+        TrivialPhase()
+        .ActivateOnEnter<LaserResistanceTest>()
+        .ActivateOnEnter<RingLaser>()
+        .ActivateOnEnter<LaserSight>()
+        .ActivateOnEnter<ShortRangeMissile>();
     }
 }

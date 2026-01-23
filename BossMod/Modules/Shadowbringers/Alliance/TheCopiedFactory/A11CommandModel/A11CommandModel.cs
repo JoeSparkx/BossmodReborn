@@ -255,7 +255,7 @@ sealed class SystematicAirstrike(BossModule module) : GenericAOEs(module, defaul
     private readonly List<AOEInstance> _aoes = [];
 
     // tune this: how long you want the warning circle to remain visible / considered dangerous for AI
-    private const float PersistSeconds = 1.2f;
+    private const float PersistSeconds = 0.5f;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
         => CollectionsMarshal.AsSpan(_aoes);
