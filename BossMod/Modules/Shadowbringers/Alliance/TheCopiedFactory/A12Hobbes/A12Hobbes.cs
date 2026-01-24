@@ -10,8 +10,7 @@ sealed class RingLaser(BossModule module) : GenericAOEs(module)
 {
     // Tune these once you confirm exact radii in-game.
     // Based on txt: rings start at platform edge and step inward.
-    // With your measured platform radius ~19.49, the first pulse is basically "15 -> edge".
-    private const float PlatformOuter = 19.49f; // your measured platform edge
+    private static float PlatformOuter => A12Hobbes.PlatformR;
     private static readonly Dictionary<uint, AOEShape> Shapes = new()
     {
         // outer ring (edge unsafe)
@@ -41,12 +40,12 @@ sealed class RingLaser(BossModule module) : GenericAOEs(module)
     }
 }
 
-// 3 stacks (one per alliance) typically, but you can leave maxCasts wide open.
+// 3 stacks (one per alliance) typically.
 sealed class LaserSight(BossModule module)
     : LineStack(module,
         iconID: (uint)IconID.Stackmarker,
         aidResolve: (uint)AID.LaserSight3,
-        activationDelay: 0,          // because resolve is "no cast"; we’ll time off the boss cast instead if needed
+        activationDelay: 0,          // because resolve is "no cast"; time off the boss cast instead if needed
         range: 65f,
         halfWidth: 4f,               // width 8
         minStackSize: 8,             // alliance stack; tune if needed
@@ -56,8 +55,7 @@ sealed class LaserSight(BossModule module)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        // If you want the warning timing to align with the 8s boss cast:
-        // when LaserSight2 starts, shift all existing baits to resolve at its finish time.
+
         if (spell.Action.ID == (uint)AID.LaserSight2 && CurrentBaits.Count > 0)
         {
             var t = Module.CastFinishAt(spell);
@@ -151,7 +149,7 @@ sealed class SmallExploderTethers(BossModule module) : GenericBaitAway(module)
 
 sealed class VariableCombatTest(BossModule module) : GenericAOEs(module)
 {
-    // Unknown cone angle. Start with 45° and adjust once you eyeball it in replay.
+    // Unknown cone angle. Start with 45° and adjust once I eyeball it in replay.
     // (If it feels too narrow/wide, change this number.)
     private static readonly AOEShapeCone Cone = new(20f, 45f.Degrees());
     private static readonly AOEShapeDonut Donut = new(10f, 19f); // inner unknown, outer ~19 per enum comment
@@ -181,7 +179,7 @@ sealed class VariableCombatTest(BossModule module) : GenericAOEs(module)
             or (uint)AID.VariableCombatTest3 or (uint)AID.VariableCombatTest7
             or (uint)AID.VariableCombatTest4 or (uint)AID.VariableCombatTest8)
         {
-            // remove the matching AOE for this caster (good enough even with multiple platforms/helpers)
+            // remove the matching AOE for this caster 
             _aoes.RemoveAll(a => a.Origin.AlmostEqual(caster.Position, 0.5f));
         }
     }
@@ -232,7 +230,7 @@ sealed class ConveyorBelts(BossModule module) : BossComponent(module)
         if (WorldState.CurrentTime > _activeUntil)
             return;
 
-        // pick nearest platform center (you already have these)
+        
         var c = NearestPlatformCenter(actor.Position);
         if ((actor.Position - c).Length() > EdgeDangerR)
             hints.Add("Conveyor active: EDGE IS LETHAL (move inward)!");
@@ -240,7 +238,7 @@ sealed class ConveyorBelts(BossModule module) : BossComponent(module)
 
     private WPos NearestPlatformCenter(WPos p)
     {
-        // uses the centres you defined in A12Hobbes.cs
+        
         var dB = (p - A12Hobbes.PlatBottom).LengthSq();
         var dR = (p - A12Hobbes.PlatRight).LengthSq();
         var dL = (p - A12Hobbes.PlatLeft).LengthSq();
@@ -264,16 +262,13 @@ sealed class OilDebuff(BossModule module) : BossComponent(module)
 [ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team, JoeSparkx", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9143)]
 public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, MapCenter, TriplePlatformBounds)
 {
-    // map centre
-    public static readonly WPos MapCenter = new(-805f, -240f);
+    public static readonly WPos MapCenter = new(-804.308f, -240.519f);
 
-    // Platform centres
-    public static readonly WPos PlatBottom = new(-805f, -269f);
-    public static readonly WPos PlatRight = new(-779f, -225f);
-    public static readonly WPos PlatLeft = new(-831f, -225f);
+    public static readonly WPos PlatBottom = new(-805.071f, -269.977f);
+    public static readonly WPos PlatRight = new(-778.953f, -224.976f);
+    public static readonly WPos PlatLeft = new(-831.119f, -225.306f);
 
-    // edge points -> derived radius
-    private const float PlatformR = 20f;
+    public const float PlatformR = 20f; // from Total Eclipse
 
     private static readonly Shape[] Platforms =
     [
@@ -282,5 +277,5 @@ public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, M
         new Circle(PlatLeft,   PlatformR),
     ];
 
-    public static readonly ArenaBoundsCustom TriplePlatformBounds = new(Platforms, MapResolution: 0.5f);
+    public static readonly ArenaBoundsCustom TriplePlatformBounds = new(Platforms, MapResolution: 0.25f);
 }
