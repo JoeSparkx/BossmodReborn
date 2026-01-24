@@ -229,8 +229,6 @@ sealed class ConveyorBelts(BossModule module) : BossComponent(module)
     {
         if (WorldState.CurrentTime > _activeUntil)
             return;
-
-        
         var c = NearestPlatformCenter(actor.Position);
         if ((actor.Position - c).Length() > EdgeDangerR)
             hints.Add("Conveyor active: EDGE IS LETHAL (move inward)!");
@@ -238,7 +236,6 @@ sealed class ConveyorBelts(BossModule module) : BossComponent(module)
 
     private WPos NearestPlatformCenter(WPos p)
     {
-        
         var dB = (p - A12Hobbes.PlatBottom).LengthSq();
         var dR = (p - A12Hobbes.PlatRight).LengthSq();
         var dL = (p - A12Hobbes.PlatLeft).LengthSq();
@@ -256,11 +253,8 @@ sealed class OilDebuff(BossModule module) : BossComponent(module)
     }
 }
 
-//////////
-/// Module info / Arena Bounds
-//////////
 [ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team, JoeSparkx", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9143)]
-public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, MapCenter, TriplePlatformBounds)
+public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, _arena.center, _arena.arena)
 {
     public static readonly WPos MapCenter = new(-804.308f, -240.519f);
 
@@ -268,14 +262,21 @@ public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, M
     public static readonly WPos PlatRight = new(-778.953f, -224.976f);
     public static readonly WPos PlatLeft = new(-831.119f, -225.306f);
 
-    public const float PlatformR = 20f; // from Total Eclipse
+    public const float PlatformR = 20f;
 
-    private static readonly Shape[] Platforms =
-    [
-        new Circle(PlatBottom, PlatformR),
-        new Circle(PlatRight,  PlatformR),
-        new Circle(PlatLeft,   PlatformR),
-    ];
+    private static readonly (WPos center, ArenaBoundsCustom arena) _arena = BuildArena();
 
-    public static readonly ArenaBoundsCustom TriplePlatformBounds = new(Platforms, MapResolution: 0.25f);
+    private static (WPos center, ArenaBoundsCustom arena) BuildArena()
+    {
+        var platforms = new Shape[]
+        {
+            new Circle(PlatBottom, PlatformR),
+            new Circle(PlatRight,  PlatformR),
+            new Circle(PlatLeft,   PlatformR),
+        };
+
+        var arena = new ArenaBoundsCustom(platforms, MapResolution: 0.25f);
+
+        return (arena.Center, arena);
+    }
 }
