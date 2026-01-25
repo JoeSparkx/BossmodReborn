@@ -1,0 +1,1 @@
+namespace BossMod.Shadowbringers.Alliance.WCGoliath;
