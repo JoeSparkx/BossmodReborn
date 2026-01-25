@@ -12,13 +12,16 @@ class A12HobbesStates : StateMachineBuilder
         .ActivateOnEnter<ShockingDischarge>()
         .ActivateOnEnter<Impact>()
         .ActivateOnEnter<VariableCombatTest>()
-        .ActivateOnEnter<VariableCombatRotationHint>()
+        .ActivateOnEnter<VentFire>()
         .ActivateOnEnter<UnwillingCargo>()
         .ActivateOnEnter<SmallExploderTethers>()
         .ActivateOnEnter<ConveyorBelts>()
         .ActivateOnEnter<OilDebuff>()
         .ActivateOnEnter<WhirlingAssault>()
         .ActivateOnEnter<BalancedEdge>()
-        .ActivateOnEnter<ElectromagneticPulse>();
+        .ActivateOnEnter<ElectromagneticPulse>()
+        .ActivateOnEnter<Iconspread>()
+        .ActivateOnEnter<VentFireSafe>()
+;
     }
 }

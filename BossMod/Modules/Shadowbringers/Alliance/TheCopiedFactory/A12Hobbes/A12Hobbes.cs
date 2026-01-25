@@ -1,6 +1,39 @@
 ﻿using BossMod.Components;
 
 namespace BossMod.Shadowbringers.Alliance.A12Hobbes;
+// Test: FireResistanceTest1 – cone
+// Alliance C: Vent fire (SAFE zone visualisation)
+sealed class VentFireSafe(BossModule module) : GenericAOEs(module)
+{
+    private static readonly AOEShapeRect Shape = new(22f, 21f); // width 42 → halfWidth 21
+    private const double Lifetime = 5.0; // seconds
+
+    private readonly List<AOEInstance> _aoes = [];
+
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+        => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnEventCast(Actor caster, ActorCastEvent spell)
+    {
+        if (spell.Action.ID == (uint)AID.FireResistanceTest3)
+        {
+            _aoes.Add(new(
+                Shape,
+                caster.Position,
+                caster.Rotation,
+                WorldState.CurrentTime.AddSeconds(Lifetime),
+                Colors.SafeFromAOE));
+        }
+    }
+
+    public override void Update()
+    {
+        // prune expired AOEs
+        var now = WorldState.CurrentTime;
+        _aoes.RemoveAll(a => a.Activation <= now);
+    }
+}
+
 
 sealed class LaserResistanceTest(BossModule module) : RaidwideCast(module, (uint)AID.LaserResistanceTest1, hint: "Raidwide");
 sealed class WhirlingAssault(BossModule module) : SimpleAOEs(module, (uint)AID.WhirlingAssault, new AOEShapeRect(40f, 4f));
@@ -40,22 +73,22 @@ sealed class RingLaser(BossModule module) : GenericAOEs(module)
     }
 }
 
-// 3 stacks (one per alliance) typically.
+// Laser Sight is a line-stack that is MARKED BY AN EVENT CAST (LaserSight1), not an icon.
 sealed class LaserSight(BossModule module)
     : LineStack(module,
-        iconID: (uint)IconID.Stackmarker,
+        aidMarker: (uint)AID.LaserSight1,
         aidResolve: (uint)AID.LaserSight3,
-        activationDelay: 0,          // because resolve is "no cast"; time off the boss cast instead if needed
+        activationDelay: 0,      // we’ll set the actual activation off the boss cast
         range: 65f,
-        halfWidth: 4f,               // width 8
-        minStackSize: 8,             // alliance stack; tune if needed
+        halfWidth: 4f,           // width 8
+        minStackSize: 8,
         maxStackSize: 8,
         maxCasts: 1,
-        markerIsFinalTarget: false)  // IMPORTANT: LaserSight3 is helper->self, not helper->player
+        markerIsFinalTarget: false)
 {
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-
+        // Boss cast is the telegraph timing for when the line resolves
         if (spell.Action.ID == (uint)AID.LaserSight2 && CurrentBaits.Count > 0)
         {
             var t = Module.CastFinishAt(spell);
@@ -65,9 +98,9 @@ sealed class LaserSight(BossModule module)
         }
     }
 }
+sealed class Iconspread(BossModule module) : SpreadFromIcon(module, (uint)IconID.Spreadmarker, (uint)AID.ShortRangeMissile2, 6f, 8d);
 
-sealed class ShortRangeMissile(BossModule module)
-    : SimpleAOEs(module, (uint)AID.ShortRangeMissile2, new AOEShapeCircle(8f));
+sealed class ShortRangeMissile(BossModule module) : SimpleAOEs(module, (uint)AID.ShortRangeMissile2, new AOEShapeCircle(8f));
 
 sealed class ShockingDischarge(BossModule module) : SimpleAOEs(module, (uint)AID.ShockingDischarge, new AOEShapeCircle(5f));
 sealed class Impact(BossModule module) : SimpleAOEs(module, (uint)AID.Impact, new AOEShapeCircle(18f));
@@ -151,7 +184,7 @@ sealed class VariableCombatTest(BossModule module) : GenericAOEs(module)
 {
     // Unknown cone angle. Start with 45° and adjust once I eyeball it in replay.
     // (If it feels too narrow/wide, change this number.)
-    private static readonly AOEShapeCone Cone = new(20f, 45f.Degrees());
+    private static readonly AOEShapeCone Cone = new(20f, 30f.Degrees());
     private static readonly AOEShapeDonut Donut = new(10f, 19f); // inner unknown, outer ~19 per enum comment
     private static readonly AOEShapeCircle Small = new(2f);
 
@@ -182,30 +215,6 @@ sealed class VariableCombatTest(BossModule module) : GenericAOEs(module)
             // remove the matching AOE for this caster 
             _aoes.RemoveAll(a => a.Origin.AlmostEqual(caster.Position, 0.5f));
         }
-    }
-}
-sealed class VariableCombatRotationHint(BossModule module) : BossComponent(module)
-{
-    private int _dir; // -1 CCW, +1 CW, 0 unknown
-
-    public override void OnEventIcon(Actor actor, uint iconID, ulong targetID)
-    {
-        // icon appears on Hobbes3 (the arm actor)
-        if ((OID)actor.OID != OID.Hobbes3)
-            return;
-
-        if (iconID == (uint)IconID.RotateCW)
-            _dir = +1;
-        else if (iconID == (uint)IconID.RotateCCW)
-            _dir = -1;
-    }
-
-    public override void AddHints(int slot, Actor actor, TextHints hints)
-    {
-        if (_dir == +1)
-            hints.Add("Right Arm: rotates CW");
-        else if (_dir == -1)
-            hints.Add("Right Arm: rotates CCW");
     }
 }
 
@@ -253,16 +262,51 @@ sealed class OilDebuff(BossModule module) : BossComponent(module)
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP, Contributors = "The Combat Reborn Team, JoeSparkx", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 700, NameID = 9143)]
-public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, _arena.center, _arena.arena)
+// Alliance C: Vent fire (oil + lethal fire follow-up)
+sealed class VentFire(BossModule module) : GenericAOEs(module)
 {
-    public static readonly WPos MapCenter = new(-804.308f, -240.519f);
+    // based on enum comment: range 22 width 42 rect
+    private static readonly AOEShapeRect Shape = new(22f, 21f);
+    private readonly List<AOEInstance> _aoes = [];
 
+    public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
+        => CollectionsMarshal.AsSpan(_aoes);
+
+    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.FireResistanceTest1)
+            _aoes.Add(new(Shape, caster.Position, caster.Rotation, Module.CastFinishAt(spell)));
+    }
+
+    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
+    {
+        if (spell.Action.ID == (uint)AID.FireResistanceTest1)
+            _aoes.RemoveAll(a => a.Origin.AlmostEqual(caster.Position, 0.5f));
+    }
+}
+
+[ModuleInfo(BossModuleInfo.Maturity.WIP,
+    StatesType = typeof(A12HobbesStates),
+    ConfigType = null,
+    ObjectIDType = typeof(OID),
+    ActionIDType = typeof(AID),
+    StatusIDType = typeof(SID),
+    TetherIDType = typeof(TetherID),
+    IconIDType = typeof(IconID),
+    PrimaryActorOID = (uint)OID.Boss,
+    Contributors = "The Combat Reborn Team, JoeSparkx",
+    Expansion = BossModuleInfo.Expansion.Shadowbringers,
+    Category = BossModuleInfo.Category.Alliance,
+    GroupType = BossModuleInfo.GroupType.CFC,
+    GroupID = 700, NameID = 9143)]
+public class A12Hobbes(WorldState ws, Actor primary)
+    : BossModule(ws, primary, _arena.center, _arena.arena)
+{
     public static readonly WPos PlatBottom = new(-805.071f, -269.977f);
     public static readonly WPos PlatRight = new(-778.953f, -224.976f);
     public static readonly WPos PlatLeft = new(-831.119f, -225.306f);
 
-    public const float PlatformR = 19.5f;
+    public const float PlatformR = 20f;
 
     private static readonly (WPos center, ArenaBoundsCustom arena) _arena = BuildArena();
 
@@ -276,7 +320,6 @@ public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, _
         };
 
         var arena = new ArenaBoundsCustom(platforms, MapResolution: 0.25f);
-
         return (arena.Center, arena);
     }
 }

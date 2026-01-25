@@ -88,7 +88,7 @@ public enum IconID : uint
 {
     RotateCCW = 168, // Hobbes3
     RotateCW = 167, // Hobbes3
-    Stackmarker = 196, // player
+    Spreadmarker = 196, // player
 }
 
 public enum TetherID : uint
