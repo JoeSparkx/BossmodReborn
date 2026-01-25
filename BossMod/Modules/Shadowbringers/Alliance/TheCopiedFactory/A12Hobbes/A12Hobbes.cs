@@ -214,7 +214,7 @@ sealed class ConveyorBelts(BossModule module) : BossComponent(module)
     private DateTime _activeUntil;
 
     // choose something reasonable; if belts last exactly the SRM window, 8-10s is fine
-    private static readonly float EdgeDangerR = 18.5f; // platform radius 20, warn before lethal edge
+    private static readonly float EdgeDangerR = 18f; // platform radius 20, warn before lethal edge
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
@@ -262,7 +262,7 @@ public class A12Hobbes(WorldState ws, Actor primary) : BossModule(ws, primary, _
     public static readonly WPos PlatRight = new(-778.953f, -224.976f);
     public static readonly WPos PlatLeft = new(-831.119f, -225.306f);
 
-    public const float PlatformR = 20f;
+    public const float PlatformR = 19.5f;
 
     private static readonly (WPos center, ArenaBoundsCustom arena) _arena = BuildArena();
 
