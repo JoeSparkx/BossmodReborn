@@ -546,9 +546,21 @@ public abstract class UniformStackSpread(BossModule module, float stackRadius, f
     public int MaxStackSize = maxStackSize;
 
     public void AddStack(Actor target, DateTime activation = default, BitMask forbiddenPlayers = default) => Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation, forbiddenPlayers));
-    public void AddStacks(IEnumerable<Actor> targets, DateTime activation = default) => Stacks.AddRange(targets.Select(target => new Stack(target, StackRadius, MinStackSize, MaxStackSize, activation)));
+    public void AddStacks(IEnumerable<Actor> targets, DateTime activation = default)
+    {
+        foreach (var target in targets)
+        {
+            Stacks.Add(new(target, StackRadius, MinStackSize, MaxStackSize, activation));
+        }
+    }
     public void AddSpread(Actor target, DateTime activation = default) => Spreads.Add(new(target, SpreadRadius, activation));
-    public void AddSpreads(IEnumerable<Actor> targets, DateTime activation = default) => Spreads.AddRange(targets.Select(target => new Spread(target, SpreadRadius, activation)));
+    public void AddSpreads(IEnumerable<Actor> targets, DateTime activation = default)
+    {
+        foreach (var target in targets)
+        {
+            Spreads.Add(new(target, SpreadRadius, activation));
+        }
+    }
 }
 
 // spread/stack mechanic that selects targets by casts
@@ -1195,6 +1207,33 @@ public class LineStack(BossModule module, uint aidMarker, uint aidResolve, doubl
                     ++NumCasts;
                 }
             }
+        }
+    }
+}
+
+//Generic StackSpread implementation for Status-driven ones that fire on status expiry
+public class StatusStackSpread(BossModule module, uint stackSid, uint spreadSid, float stackRadius, float spreadRadius, int minStackSize = 2, int maxStackSize = 2147483647, bool raidwideOnResolve = true, bool includeDeadTargets = false) : UniformStackSpread(module, stackRadius, spreadRadius, minStackSize, maxStackSize, raidwideOnResolve, includeDeadTargets)
+{
+    public override void OnStatusGain(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == stackSid)
+        {
+            AddStack(actor, status.ExpireAt);
+        }
+        if (status.ID == spreadSid)
+        {
+            AddSpread(actor, status.ExpireAt);
+        }
+    }
+    public override void OnStatusLose(Actor actor, ref ActorStatus status)
+    {
+        if (status.ID == stackSid)
+        {
+            Stacks.Clear();
+        }
+        if (status.ID == spreadSid)
+        {
+            Spreads.Clear();
         }
     }
 }

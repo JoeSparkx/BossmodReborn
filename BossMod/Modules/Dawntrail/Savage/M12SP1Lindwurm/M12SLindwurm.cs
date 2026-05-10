@@ -16,12 +16,12 @@ sealed class DramaticLysis1(BossModule module) : Components.SimpleAOEs(module, (
 sealed class DramaticLysis2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DramaticLysis2, 4f);
 sealed class DramaticLysis4(BossModule module) : Components.SimpleAOEs(module, (uint)AID.DramaticLysis4, 6f);
 sealed class FourthWallFusion0(BossModule module) : Components.SimpleAOEs(module, (uint)AID.FourthWallFusion0, 6f);
-sealed class FourthWallFusion1(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.FourthWallFusion1, 6f);
+//sealed class FourthWallFusion1(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.FourthWallFusion1, 6f);
 sealed class SplitScourge1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SplitScourge1, new AOEShapeRect(60f, 5f));
 sealed class RoilingMass0(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RoilingMass0, 3f);
 sealed class RoilingMass1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.RoilingMass1, 3f);
 sealed class PhagocyteSpotlight1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.PhagocyteSpotlight1, 5f);
-sealed class VisceralBurst(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.VisceralBurst, 6f);
+//sealed class VisceralBurst(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.VisceralBurst, 6f);
 sealed class TheFixer(BossModule module) : Components.RaidwideCast(module, (uint)AID.TheFixer);
 sealed class UnmitigatedExplosion(BossModule module) : Components.RaidwideCast(module, (uint)AID.UnmitigatedExplosion);
 sealed class WingedScourge2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.WingedScourge2, new AOEShapeCone(50f, 15f.Degrees()));
@@ -32,7 +32,7 @@ sealed class ManaBurst1(BossModule module) : Components.SimpleAOEs(module, (uint
 sealed class HeavySlam0(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavySlam0, 5f);
 sealed class HeavySlam2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.HeavySlam2, 5f);
 sealed class EsotericFinisher(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.EsotericFinisher, 10f);
-sealed class FourthWallFusion2(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.FourthWallFusion2, 6f);
+//sealed class FourthWallFusion2(BossModule module) : Components.SpreadFromCastTargets(module, (uint)AID.FourthWallFusion2, 6f);
 sealed class unk_46395(BossModule module) : Components.SimpleAOEs(module, (uint)AID.unk_46395, new AOEShapeDonut(20f, 30f));
 sealed class Metamitosis1(BossModule module) : Components.SimpleAOEs(module, (uint)AID.Metamitosis1, 3f);
 sealed class SerpentineScourge2(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SerpentineScourge2, new AOEShapeRect(30f, 10f));
@@ -44,8 +44,8 @@ sealed class RefreshingOverkill2(BossModule module) : Components.RaidwideCast(mo
 sealed class Splattershed2(BossModule module) : Components.RaidwideCast(module, (uint)AID.Splattershed2);
 sealed class unk_48028(BossModule module) : Components.RaidwideCast(module, (uint)AID.unk_48028);
 
-[ModuleInfo(BossModuleInfo.Maturity.WIP,
-    Contributors = "SRP",
+[ModuleInfo(BossModuleInfo.Maturity.Contributed,
+    Contributors = "SRP, additional enhancements by Topas",
     PrimaryActorOID = (uint)OID.Lindwurm1,
     GroupType = BossModuleInfo.GroupType.CFC,
     GroupID = (uint)GroupID.Lindwurm,
@@ -53,6 +53,5 @@ sealed class unk_48028(BossModule module) : Components.RaidwideCast(module, (uin
 public sealed class M12SLindwurm(WorldState ws, Actor primary) : BossModule(ws, primary, arenaCenter, DefaultBounds)
 {
     private static readonly WPos arenaCenter = new(100f, 100f);
-    public static readonly ArenaBoundsRect DefaultBounds = new ArenaBoundsRect(20f, 15f);
+    public static readonly ArenaBoundsRect DefaultBounds = new(20f, 15f);
 }
-
