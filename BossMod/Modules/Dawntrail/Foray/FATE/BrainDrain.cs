@@ -54,7 +54,7 @@ sealed class TripleFlightCyclone(BossModule module) : Components.GenericAOEs(mod
     private static readonly AOEShapeDonut donut = new(10f, 20f);
     private static readonly AOEShapeCircle circle = new(10f);
     private static readonly AOEShapeRect rect = new(40f, 5f, 40f);
-    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly List<AOEInstance> _aoes = [with(3)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -111,4 +111,4 @@ sealed class BrainDrainStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1967)]
-public sealed class BrainDrain(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+public sealed class BrainDrain(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

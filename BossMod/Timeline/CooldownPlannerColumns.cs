@@ -86,7 +86,7 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
 
                     using (var disable = ImRaii.Disabled(i == 0 || Plan.Modules[i - 1].Definition.Order != m.Definition.Order))
                     {
-                        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ArrowUp, $"###up{i}"))
+                        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ArrowUp, $"up{i}"))
                         {
                             post += SwapModulesAction(i, false);
                         }
@@ -95,7 +95,7 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
                     ImGui.SameLine();
                     using (var disable = ImRaii.Disabled(i == Plan.Modules.Count - 1 || Plan.Modules[i + 1].Definition.Order != m.Definition.Order))
                     {
-                        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ArrowDown, $"###down{i}"))
+                        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ArrowDown, $"down{i}"))
                         {
                             post += SwapModulesAction(i, true);
                         }
@@ -114,8 +114,11 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
                     if (ImGui.IsItemHovered(ImGuiHoveredFlags.AllowWhenDisabled))
                     {
                         using var tooltip = ImRaii.Tooltip();
-                        ImGui.TextUnformatted("Hold shift to remove");
-                        UIRotationModule.DescribeModule(m.Type, m.Definition);
+                        if (tooltip.Alive)
+                        {
+                            ImGui.TextUnformatted("Hold shift to remove");
+                            UIRotationModule.DescribeModule(m.Type, m.Definition);
+                        }
                     }
                 }
                 ImGui.Separator();
@@ -151,7 +154,10 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
                     if (ImGui.IsItemHovered())
                     {
                         using var tooltip = ImRaii.Tooltip();
-                        UIRotationModule.DescribeModule(mt, m.Definition);
+                        if (tooltip.Alive)
+                        {
+                            UIRotationModule.DescribeModule(mt, m.Definition);
+                        }
                     }
                 }
                 post?.Invoke();
@@ -299,7 +305,7 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
             var state = _tree.Nodes.GetValueOrDefault(o.StateID);
             if (state != null)
             {
-                _colTarget.AddElement(state, o.TimeSinceActivation, o.WindowLength, o.Disabled, (StrategyValueTrack)o.Value);
+                _colTarget.AddElement(state, o.TimeSinceActivation, o.WindowLength, o.Disabled, (StrategyValueTrack)o.Value, o.ConditionType, o.ConditionParam);
             }
         }
     }
@@ -385,7 +391,7 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
                 var state = _tree.Nodes.GetValueOrDefault(entry.StateID);
                 if (state != null)
                 {
-                    col.AddElement(state, entry.TimeSinceActivation, entry.WindowLength, entry.Disabled, entry.Value);
+                    col.AddElement(state, entry.TimeSinceActivation, entry.WindowLength, entry.Disabled, entry.Value, entry.ConditionType, entry.ConditionParam);
                 }
             }
             foreach (var a in _playerActions)
@@ -435,5 +441,5 @@ public sealed class CooldownPlannerColumns : Timeline.ColumnGroup
     }
 
     private void AddEntry(List<Plan.Entry> list, ColumnPlannerTrack.Element elem)
-        => list.Add(new(elem.Value) { StateID = elem.Window.AttachNode.State.ID, TimeSinceActivation = elem.Window.Delay, WindowLength = elem.WindowLength, Disabled = elem.Disabled });
+        => list.Add(new(elem.Value) { StateID = elem.Window.AttachNode.State.ID, TimeSinceActivation = elem.Window.Delay, WindowLength = elem.WindowLength, Disabled = elem.Disabled, ConditionParam = elem.ConditionParam, ConditionType = elem.ConditionType });
 }

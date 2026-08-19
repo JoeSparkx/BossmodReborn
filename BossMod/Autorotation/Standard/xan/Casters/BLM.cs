@@ -235,7 +235,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
 
         (BestAOETarget, NumAOETargets) = SelectTargetByHP(strategy, primaryTarget, 25, IsSplashTarget);
 
-        var dotTarget = ResolveTargetOverride(strategy.Thunder) ?? primaryTarget;
+        var dotTarget = ResolveEnemy(strategy.Thunder) ?? primaryTarget;
 
         if (strategy.Thunder.Value is ThunderStrategy.Force or ThunderStrategy.Delay)
         {
@@ -268,7 +268,7 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
             return;
         }
 
-        if (!Hints.PriorityTargets.Any())
+        if (!Hints.PriorityTargets.Any(p => Player.DistanceToHitbox(p.Actor) < 40))
         {
             if (ReadyIn(AID.Transpose) == 0)
             {
@@ -295,33 +295,33 @@ public sealed class BLM(RotationModuleManager manager, Actor player) : Castxan<A
                 PushGCD(AID.UmbralSoul, Player, GCDPriority.Standard);
         }
 
-        if (primaryTarget == null)
-            return;
-
         GoalZoneSingle(25);
+
+        if (primaryTarget == null || Player.DistanceToHitbox(primaryTarget.Actor) > 50)
+            return;
 
         if (Player.InCombat && World.Actors.FirstOrDefault(x => x.OID == 0x179 && x.OwnerID == Player.InstanceID) is Actor ll)
             Hints.GoalZones.Add(p => p.InCircle(ll.Position, 3) ? 0.5f : 0);
 
-        if (strategy.Zeninage.IsEnabled() && RaidBuffsLeft > GCD && DutyActionReadyIn(PhantomID.Zeninage) <= GCD)
+        if (strategy.Zeninage.IsEnabled() && RaidBuffsLeft > GCD && DutyActionGCDReady(PhantomID.Zeninage))
             PushGCD((AID)PhantomID.Zeninage, primaryTarget, GCDPriority.Max);
 
         if (strategy.Iainuki.IsEnabled() && (CombatTimer > 10 || RaidBuffsLeft > GCD))
         {
             var ready = DutyActionReadyIn(PhantomID.Iainuki);
-            if (ready <= GCD)
+            if (ready <= GCD + 0.05f)
                 PushGCD((AID)PhantomID.Iainuki, primaryTarget, GCDPriority.Max);
 
-            if (ready <= GCD + GCDLength * 2)
-                Hints.GoalZones.Add(GoalSingleTarget(primaryTarget.Actor, 8));
+            if (ready <= GCD + 0.05f + GCDLength * 2f)
+                Hints.GoalZones.Add(GoalSingleTarget(primaryTarget.Actor, 8f));
         }
 
         if (strategy.AutoTimeMage.IsEnabled())
         {
-            if (DutyActionReadyIn(PhantomID.OccultQuick) <= GCD && (InLeyLines || CombatTimer > 10))
+            if (DutyActionGCDReady(PhantomID.OccultQuick) && (InLeyLines || CombatTimer > 10))
                 PushGCD((AID)PhantomID.OccultQuick, Player, GCDPriority.Max);
 
-            if ((CombatTimer > 10 || RaidBuffsLeft > GCD) && DutyActionReadyIn(PhantomID.OccultComet) <= GCD)
+            if ((CombatTimer > 10 || RaidBuffsLeft > GCD) && DutyActionGCDReady(PhantomID.OccultComet))
             {
                 if (InstantCastLeft > GCD)
                     PushGCD((AID)PhantomID.OccultComet, BestAOETarget, GCDPriority.Max);

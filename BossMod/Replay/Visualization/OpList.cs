@@ -47,14 +47,14 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
         }
     } = false;
 
-    public void Draw(UITree tree, DateTime reference)
-    {
-        //foreach (var n in _tree.Node("Settings"))
-        //{
-        //    DrawSettings();
-        //}
+    Task _filterTask = Task.CompletedTask;
 
-        if (!_nodesUpToDate)
+    void RebuildNodes()
+    {
+        if (!_filterTask.IsCompleted)
+            return;
+
+        _filterTask = Task.Run(() =>
         {
             _nodes.Clear();
             var i = 0;
@@ -67,16 +67,41 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
                 ++i;
             }
             _nodesUpToDate = true;
+        });
+    }
+
+    public void Draw(UITree tree, DateTime reference)
+    {
+        //foreach (var n in _tree.Node("Settings"))
+        //{
+        //    DrawSettings();
+        //}
+
+        if (!_nodesUpToDate)
+        {
+            RebuildNodes();
+            ImGui.Text($"Filtering...");
+            return;
         }
 
         var timeRef = ImGui.GetIO().KeyShift && _relativeTS != default ? _relativeTS : reference;
-        foreach (var node in _nodes)
+
+        var c = new ImGuiListClipper();
+        c.Begin(_nodes.Count, ImGui.GetFrameHeight() - 2);
+
+        while (c.Step())
         {
-            foreach (var n in tree.Node($"{(node.Timestamp - timeRef).TotalSeconds:f3}: {node.Text}###{node.Index}", node.Children == null, Colors.TextColor1, node.ContextMenu, () => scrollTo(node.Timestamp), () => _relativeTS = node.Timestamp))
+            for (var i = c.DisplayStart; i < c.DisplayEnd; ++i)
             {
-                node.Children?.Invoke(tree);
+                var node = _nodes[i];
+                foreach (var n in tree.Node($"{(node.Timestamp - timeRef).TotalSeconds:f3}: {node.Text}###{node.Index}", node.Children == null, Colors.TextColor1, node.ContextMenu, () => scrollTo(node.Timestamp), () => _relativeTS = node.Timestamp))
+                {
+                    node.Children?.Invoke(tree);
+                }
             }
         }
+
+        c.End();
     }
 
     public void ClearFilters()
@@ -174,6 +199,7 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
         ActorState.OpIcon op => FilterInterestingActor(op.InstanceID, op.Timestamp, true),
         ActorState.OpTether op => FilterInterestingActor(op.InstanceID, op.Timestamp, true),
         ActorState.OpRenderflags op => FilterInterestingActor(op.InstanceID, op.Timestamp, false),
+        ActorState.OpVisibility => false,
         ClientState.OpActionRequest => false,
         ClientState.OpHateChange => false,
         ClientState.OpActiveCompanionChange => false,
@@ -183,6 +209,7 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
         ClientState.OpComboChange => false,
         ClientState.OpCooldown => false,
         ClientState.OpForcedMovementDirectionChange => false,
+        ClientState.OpFlyingChange => false,
         WorldState.OpRSVData => false,
         ClientState.OpMoveSpeedChange => ShowCLMVEvents,
         NetworkState.OpServerIPC => false,
@@ -235,7 +262,8 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
         ClientState.OpActiveFateChange op => $"FATE: {op.Value.ID} '{Service.LuminaRow<Lumina.Excel.Sheets.Fate>(op.Value.ID)?.Name}' {op.Value.Progress}%",
         ClientState.OpActivePetChange op => $"Player pet: {ActorString(op.Value.InstanceID, op.Timestamp)}",
         ClientState.OpInventoryChange op => ItemString(op),
-        PartyState.OpModify op => $"Party slot {op.Slot}: {op.Member.InstanceId:X8} {op.Member.Name}",
+        PartyState.OpModify op => $"Party slot {op.Slot}: {ActorString(op.Member.InstanceId, op.Timestamp)}",
+        WorldState.OpDirectorUpdate op => $"DirectorUpdate: DirectorID: {op.DirectorID:X8}, UpdateID: {op.UpdateID:X8}, Params: {op.Param1:X8}|{op.Param2:X8}|{op.Param3:X8}|{op.Param4:X8}",
         WorldState.OpMapEffect op => $"MapEffect: {op.Index:X2} {op.State:X8}",
         WorldState.OpLegacyMapEffect op => $"MapEffect (legacy): seq={op.Sequence} param={op.Param} data={GetOpLegacyMapEffectString(op.Data)}",
         WorldState.OpSystemLogMessage op => $"LogMessage {op.MessageID}: '{Service.LuminaRow<Lumina.Excel.Sheets.LogMessage>(op.MessageID)?.Text}' [{string.Join(", ", op.Args)}]",
@@ -307,15 +335,30 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
 
     private void DrawActionTimelineSync(UITree tree, ActorState.OpPlayActionTimelineSync op) => tree.LeafNodes(op.Actions, iii => $"{ActorString(iii.Item1, op.Timestamp)}: {iii.Item2:X4}");
 
-    private Action? OpContextMenu(WorldState.Operation o) => o switch
+    private Action? OpContextMenu(WorldState.Operation o)
     {
-        WorldState.OpDirectorUpdate op => () => ContextMenuDirectorUpdate(op),
-        ActorState.OpStatus op => () => ContextMenuActorStatus(op),
-        ActorState.OpCastInfo op => () => ContextMenuActorCast(op),
-        ActorState.OpCastEvent op => () => ContextMenuEventCast(op),
-        ActorState.Operation op => () => ContextMenuActor(op),
-        _ => null,
-    };
+        Action? opSpecific = o switch
+        {
+            WorldState.OpDirectorUpdate op => () => ContextMenuDirectorUpdate(op),
+            ActorState.OpStatus op => () => ContextMenuActorStatus(op),
+            ActorState.OpCastInfo op => () => ContextMenuActorCast(op),
+            ActorState.OpCastEvent op => () => ContextMenuEventCast(op),
+            ActorState.Operation op => () => ContextMenuActor(op),
+            _ => null,
+        };
+
+        return () =>
+        {
+            if (opSpecific != null)
+            {
+                opSpecific.Invoke();
+                ImGui.Separator();
+            }
+
+            if (ImGui.MenuItem("Jump to timestamp", "double click"))
+                scrollTo(o.Timestamp);
+        };
+    }
 
     private void ContextMenuDirectorUpdate(WorldState.OpDirectorUpdate op)
     {
@@ -424,7 +467,7 @@ sealed class OpList(Replay replay, Replay.Encounter? enc, BossModuleRegistry.Inf
 
             return string.Join("/", parts);
         }
-        var sb = new System.Text.StringBuilder();
+        var sb = new StringBuilder();
         var first = true;
         foreach (var s in FindStatuses(instanceID, index, timestamp))
         {

@@ -163,10 +163,10 @@ public enum SID : uint
     #endregion
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly WHMConfig _config = Service.Config.Get<WHMConfig>();
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.PulseOfLife, castAnimLock: 8.10f); // animLock=8.100s?
         d.RegisterSpell(AID.Stone);
@@ -220,16 +220,14 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         d.RegisterChargeIncreaseTrait(AID.DivineBenison, TraitID.EnhancedDivineBenison);
         d.RegisterChargeIncreaseTrait(AID.Tetragrammaton, TraitID.EnhancedTetragrammaton);
 
-        d.Spell(AID.AetherialShift)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera
+        d.Spell(AID.AetherialShift)!.TransformAngle = (ws, _, _) => _config.AlignDashToCamera
             ? ws.Client.CameraAzimuth + 180.Degrees()
             : null;
-        d.Spell(AID.AetherialShift)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
+        d.Spell(AID.AetherialShift)!.AllowExecute = ActionPredicate.AllowDashFixed(15);
     }
 }

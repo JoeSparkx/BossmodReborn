@@ -2,18 +2,19 @@ namespace BossMod.Endwalker.VariantCriterion.V2MountRokkon.V23Gorai;
 
 sealed class ArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<Polygon> octagonsInner = new(4);
-    private readonly List<Polygon> octagonsOuter = new(4);
+    private readonly List<Polygon> octagonsInner = [with(4)];
+    private readonly List<Polygon> octagonsOuter = [with(4)];
     private AOEInstance[] _aoe = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.Unenlightenment && Arena.Bounds.Radius > 20f)
+        if (spell.Action.ID == (uint)AID.Unenlightenment && Arena.Bounds.Radius > 21f)
         {
             var center = Arena.Center;
-            _aoe = [new(new AOEShapeCustom([new Square(center, 23f)], [new Square(center, 20f)]), center, default, Module.CastFinishAt(spell, 0.5d))];
+            var shape = new AOEShapeCustom(center, [new Square(center, 22.5f)], [new Square(center, 20f)]);
+            _aoe = [new(shape, center, default, Module.CastFinishAt(spell, 0.5d), shapeDistance: shape.Distance(center, default))];
         }
     }
 

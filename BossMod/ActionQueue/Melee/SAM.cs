@@ -103,9 +103,9 @@ public enum SID : uint
     TrueNorth = ClassShared.SID.TrueNorth, // applied by True North to self
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.DoomOfTheLiving, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.Hakaze);
@@ -151,8 +151,6 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         // hardcoded mechanics
@@ -162,10 +160,10 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.Iaijutsu)!.TransformAction = () => ActionID.MakeSpell(_state.BestIai);
         //d.Spell(AID.MeikyoShisui)!.Condition = _ => _state.MeikyoLeft == 0;
 
-        d.Spell(AID.HissatsuGyoten)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
-        d.Spell(AID.HissatsuYaten)!.ForbidExecute = ActionDefinitions.BackdashCheck(10);
+        d.Spell(AID.HissatsuGyoten)!.AllowExecute = ActionPredicate.AllowDashToTarget;
+        d.Spell(AID.HissatsuYaten)!.AllowExecute = ActionPredicate.AllowBackdash(10);
 
         // dont want accidental double meikyo
-        d.Spell(AID.MeikyoShisui)!.ForbidExecute = (_, player, _, _) => player.FindStatus(SID.MeikyoShisui) != null;
+        d.Spell(AID.MeikyoShisui)!.AllowExecute = (_, player, _, _) => player.FindStatus(SID.MeikyoShisui) == null;
     }
 }

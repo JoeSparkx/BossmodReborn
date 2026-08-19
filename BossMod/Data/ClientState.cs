@@ -56,8 +56,8 @@ public sealed class ClientState
         public readonly byte HandInCount = handInCount;
         public readonly uint ObjectiveNpc = objectiveNpc;
 
-        public static bool operator ==(Fate left, Fate right) => left.ID == right.ID;
-        public static bool operator !=(Fate left, Fate right) => left.ID != right.ID;
+        public static bool operator ==(Fate left, Fate right) => left.ID == right.ID && left.Center == right.Center && left.Radius == right.Radius && left.Progress == right.Progress && left.HandInCount == right.HandInCount && left.ObjectiveNpc == right.ObjectiveNpc;
+        public static bool operator !=(Fate left, Fate right) => left.ID != right.ID || left.Center != right.Center || left.Radius != right.Radius || left.Progress != right.Progress || left.HandInCount != right.HandInCount && left.ObjectiveNpc != right.ObjectiveNpc;
 
         public readonly bool Equals(Fate other) => this == other;
         public override readonly bool Equals(object? obj) => obj is Fate other && Equals(other);
@@ -175,6 +175,7 @@ public sealed class ClientState
     public Combo ComboState;
     public Stats PlayerStats;
     public float MoveSpeed = 6f;
+    public bool Flying;
     public readonly Cooldown[] Cooldowns = new Cooldown[NumCooldownGroups];
     public readonly DutyAction[] DutyActions = new DutyAction[NumDutyActions];
     public readonly byte[] BozjaHolster = new byte[(int)BozjaHolsterID.Count]; // number of copies in holster per item
@@ -238,11 +239,11 @@ public sealed class ClientState
 
         return res;
     }
-    public unsafe T GetGauge<T>() where T : unmanaged => GetGauge<T>(GaugePayload);
+    public T GetGauge<T>() where T : unmanaged => GetGauge<T>(GaugePayload);
 
     public List<WorldState.Operation> CompareToInitial()
     {
-        List<WorldState.Operation> ops = new(15);
+        List<WorldState.Operation> ops = [with(15)];
         if (CountdownRemaining != null)
         {
             ops.Add(new OpCountdownChange(CountdownRemaining));
@@ -267,7 +268,10 @@ public sealed class ClientState
         {
             ops.Add(new OpMoveSpeedChange(MoveSpeed));
         }
-
+        if (Flying)
+        {
+            ops.Add(new OpFlyingChange(true));
+        }
         var cooldowns = new List<(int, Cooldown)>(NumCooldownGroups);
 
         for (var i = 0; i < NumCooldownGroups; ++i)
@@ -510,6 +514,20 @@ public sealed class ClientState
         }
 
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("CLMV"u8).Emit(Speed);
+    }
+
+    public Event<OpFlyingChange> FlyingChanged = new();
+    public sealed class OpFlyingChange(bool value) : WorldState.Operation
+    {
+        public readonly bool Value = value;
+
+        protected override void Exec(WorldState ws)
+        {
+            ws.Client.Flying = Value;
+            ws.Client.FlyingChanged.Fire(this);
+        }
+
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC(Value ? "FLY+"u8 : "FLY-"u8);
     }
 
     public Event<OpCooldown> CooldownsChanged = new();
@@ -800,5 +818,15 @@ public sealed class ClientState
             ws.Client.InventoryChanged.Fire(this);
         }
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("INVT"u8).Emit(ItemId).Emit(Quantity);
+    }
+
+    public Event<OpActionFailedLoS> ActionFailedLoS = new();
+    public sealed class OpActionFailedLoS(uint actionId, ulong targetId) : WorldState.Operation
+    {
+        public readonly uint ActionId = actionId;
+        public readonly ulong TargetId = targetId;
+
+        protected override void Exec(WorldState ws) => ws.Client.ActionFailedLoS.Fire(this);
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("FLOS"u8).Emit(ActionId).EmitActor(TargetId);
     }
 }

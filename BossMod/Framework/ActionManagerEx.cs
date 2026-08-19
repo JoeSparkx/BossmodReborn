@@ -1,4 +1,6 @@
-﻿using FFXIVClientStructs.FFXIV.Client.Game;
+using Dalamud.Game.ClientState.Conditions;
+using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Client.Game;
 using FFXIVClientStructs.FFXIV.Client.Game.Character;
 using FFXIVClientStructs.FFXIV.Client.Game.Control;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
@@ -7,7 +9,7 @@ using FFXIVClientStructs.FFXIV.Client.Game.Object;
 using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using FFXIVClientStructs.FFXIV.Client.System.Framework;
 using FFXIVClientStructs.FFXIV.Client.UI.Misc;
-using FFXIVClientStructs.FFXIV.Common.Component.BGCollision;
+using FFXIVClientStructs.FFXIV.Client.UI.Shell;
 using CSActionType = FFXIVClientStructs.FFXIV.Client.Game.ActionType;
 
 namespace BossMod;
@@ -74,7 +76,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
     private DateTime _nextAllowedExecuteCommand;
     private const uint InvalidEntityId = 0xE0000000;
 
-    private readonly unsafe delegate* unmanaged<TargetSystem*, TargetSystem*> _autoSelectTarget;
+    private readonly delegate* unmanaged<TargetSystem*, TargetSystem*> _autoSelectTarget;
 
     public ActionManagerEx(WorldState ws, AIHints hints, MovementOverride movement)
     {
@@ -122,6 +124,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
     public void QueueManualActions()
     {
+        _cancelCastTweak.Reset();
         _manualQueue.RemoveExpired();
         _manualQueue.FillQueue(_hints.ActionsToExecute);
     }
@@ -145,7 +148,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
 
         if (AutoQueue.Priority < ActionQueue.Priority.ManualEmergency)
         {
-            if (Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold))
+            if (Config.PyreticThreshold > 0f && _hints.ImminentSpecialMode.mode == AIHints.SpecialMode.Pyretic && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold + ApplicationDelay.Get(AutoQueue.Action)))
             {
                 AutoQueue = default; // do not execute non-emergency actions when pyretic is imminent
             }
@@ -461,11 +464,8 @@ public sealed unsafe class ActionManagerEx : IDisposable
         // check whether movement is safe; block movement if not and if desired
         MoveMightInterruptCast &= CastTimeRemaining > 0; // previous cast could have ended without action effect
         // if we're not casting, but will start soon, moving might interrupt future cast
-        if (imminentActionAdj && CastTimeRemaining <= 0 && _inst->AnimationLock < 0.1f && GetAdjustedCastTime(imminentActionAdj) > 0 && !CanMoveWhileCasting(imminentActionAdj) && GCD() < 0.1f)
-        {
-            // check LoS on target; blocking movement can cause AI mode to get stuck behind a wall trying to cast a spell on an unreachable target forever
-            MoveMightInterruptCast |= CheckActionLoS(imminentAction, _inst->ActionQueued ? _inst->QueuedTargetId : (AutoQueue.Target?.InstanceID ?? 0));
-        }
+        MoveMightInterruptCast |= imminentActionAdj && CastTimeRemaining <= 0 && _inst->AnimationLock < 0.1f && GetAdjustedCastTime(imminentActionAdj) > 0 && !CanMoveWhileCasting(imminentActionAdj) && GCD() < 0.1f;
+
         var blockMovement = Config.PreventMovingWhileCasting && MoveMightInterruptCast && _ws.Party.Player()?.MountId == 0;
         blockMovement |= Config.PyreticThreshold > 0 && _hints.ImminentSpecialMode.mode is AIHints.SpecialMode.Pyretic or AIHints.SpecialMode.NoMovement && _hints.ImminentSpecialMode.activation < _ws.FutureTime(Config.PyreticThreshold);
 
@@ -490,7 +490,7 @@ public sealed unsafe class ActionManagerEx : IDisposable
             if (status == 0)
             {
                 // disable in-game auto rotation, to prevent fucking up with our logic
-                autoRotateConfig->Value.UInt = _smartRotationTweak.Enabled || AI.AIManager.Instance?.Beh != null ? 0 : autoRotateOriginal;
+                autoRotateConfig->Value.UInt = SmartRotationTweak.Enabled || AI.AIManager.Instance?.Beh != null ? 0 : autoRotateOriginal;
                 var res = ExecuteAction(actionAdj, targetID, AutoQueue.TargetPos);
                 //Service.Log($"[AMEx] Auto-execute {AutoQueue.Source} action {AutoQueue.Action} (=> {actionAdj}) @ {targetID:X} {Utils.Vec3String(AutoQueue.TargetPos)} => {res}");
             }
@@ -510,21 +510,16 @@ public sealed unsafe class ActionManagerEx : IDisposable
         _cooldownTweak.StopAdjustment(); // clear any potential adjustments
         _movement.MovementBlocked = blockMovement;
 
-        // TODO: what's the reason to do it in AM update, rather than plugin's executehints?..
-        if (_ws.Party.Player()?.CastInfo != null && _cancelCastTweak.ShouldCancel(_ws.CurrentTime, _hints.ForceCancelCast))
+        if (!GameMain.IsInPvPArea() && !Service.Condition.Any(ConditionFlag.DutyRecorderPlayback, ConditionFlag.InThisState89))
         {
-            UIState.Instance()->Hotbar.CancelCast();
-        }
-
-        var autosEnabled = UIState.Instance()->WeaponState.AutoAttackState.IsAutoAttacking;
-        if (_autoAutosTweak.GetDesiredState(autosEnabled, _ws.Party.Player()?.TargetID ?? 0) != autosEnabled)
-        {
-            _inst->UseAction(CSActionType.GeneralAction, 1);
+            var autosEnabled = UIState.Instance()->WeaponState.AutoAttackState.IsAutoAttacking;
+            if (_autoAutosTweak.GetDesiredState(autosEnabled, _ws.Party.Player()?.TargetID ?? 0) != autosEnabled)
+                _inst->UseAction(CSActionType.GeneralAction, 1);
         }
 
         if (_hints.WantDismount && !_movement.FollowPathActive() && _dismountTweak.AllowDismount())
         {
-            _inst->UseAction(CSActionType.Action, 4);
+            _inst->UseAction(CSActionType.GeneralAction, 23);
         }
     }
 
@@ -569,9 +564,9 @@ public sealed unsafe class ActionManagerEx : IDisposable
             return InvalidEntityId;
         }
 
-        // note: only standard mode can be filtered
         // note: current implementation introduces slight input lag (on button press, next autorotation update will pick state updates, which will be executed on next action manager update)
-        if (mode == ActionManager.UseActionMode.None && action.Type is ActionType.Spell or ActionType.Item && _manualQueue.Push(action, targetId, GetAdjustedCastTime(action) * 0.001f, !targetOverridden, getAreaTarget, findNearestTarget))
+        var canManualQueue = mode is ActionManager.UseActionMode.None or ActionManager.UseActionMode.Macro;
+        if (canManualQueue && action.Type is ActionType.Spell or ActionType.Item && _manualQueue.Push(action, targetId, GetAdjustedCastTime(action) * 0.001f, !targetOverridden, getAreaTarget, findNearestTarget))
         {
             return false;
         }
@@ -809,39 +804,5 @@ public sealed unsafe class ActionManagerEx : IDisposable
             return true;
         }
         return _setAutoAttackStateHook.Original(self, value, sendPacket, isInstant);
-    }
-
-    // just the LoS portion of ActionManager::GetActionInRangeOrLoS (which also checks range, which we don't care about, and also checks facing angle, which we don't care about)
-    private static bool CheckActionLoS(ActionID action, ulong targetID)
-    {
-        var row = action.Type == ActionType.Spell ? Service.LuminaRow<Lumina.Excel.Sheets.Action>(action.ID) : null;
-        if (row == null)
-        {
-            return true; // unknown action, assume nothing
-        }
-
-        if (!row.Value.RequiresLineOfSight)
-        {
-            return true;
-        }
-
-        var player = GameObjectManager.Instance()->Objects.IndexSorted[0].Value;
-        var targetObj = GameObjectManager.Instance()->Objects.GetObjectByGameObjectId(targetID);
-        if (targetObj == null || targetObj->EntityId == player->EntityId)
-        {
-            return true;
-        }
-
-        var playerPos = *player->GetPosition();
-        var targetPos = *targetObj->GetPosition();
-
-        playerPos.Y += 2;
-        targetPos.Y += 2;
-
-        var offset = targetPos - playerPos;
-        var maxDist = offset.Magnitude;
-        var direction = offset / maxDist;
-
-        return !BGCollisionModule.RaycastMaterialFilter(playerPos, direction, out _, maxDist);
     }
 }

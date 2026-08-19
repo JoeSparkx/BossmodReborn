@@ -17,7 +17,7 @@ public enum AID : uint
 sealed class Selfdetonation(BossModule module) : BossComponent(module)
 {
     private const string hint = "In bomb explosion radius!";
-    private readonly List<Actor> bombs = new(6);
+    private readonly List<Actor> bombs = [with(6)];
 
     public override void OnActorCreated(Actor actor)
     {
@@ -39,12 +39,12 @@ sealed class Selfdetonation(BossModule module) : BossComponent(module)
     {
         if (!Module.PrimaryActor.IsDead)
         {
-            Arena.AddCircle(Module.PrimaryActor.Position, 10f);
+            Arena.ZoneCircleOutline(Module.PrimaryActor.Position, 10f);
         }
         var count = bombs.Count;
         for (var i = 0; i < count; ++i)
         {
-            Arena.AddCircle(bombs[i].Position, 6f);
+            Arena.ZoneCircleOutline(bombs[i].Position, 6f);
         }
     }
 

@@ -68,8 +68,10 @@ public sealed class ModuleViewer : IDisposable
         Customize(BossModuleInfo.Category.TreasureHunt, contentType.GetRow(9u));
         Customize(BossModuleInfo.Category.GoldSaucer, contentType.GetRow(19u));
         Customize(BossModuleInfo.Category.DeepDungeon, contentType.GetRow(21u));
+        Customize(BossModuleInfo.Category.Quantum, contentType.GetRow(21u), "Quantum");
         Customize(BossModuleInfo.Category.Ultimate, contentType.GetRow(28u));
         Customize(BossModuleInfo.Category.VariantCriterion, contentType.GetRow(30u));
+        Customize(BossModuleInfo.Category.HallOfTheNovice, contentType.GetRow(20u), "Hall of the Novice");
 
         var playStyle = Service.LuminaSheet<CharaCardPlayStyle>()!;
         Customize(BossModuleInfo.Category.Foray, playStyle.GetRow(6u));
@@ -155,21 +157,27 @@ public sealed class ModuleViewer : IDisposable
 
     public void Draw(UITree tree, WorldState ws)
     {
-        using (var group = ImRaii.Group())
+        var availWidth = ImGui.GetContentRegionAvail().X;
+        var filterWidth = 300f; // Fixed width for filter panel
+        var moduleWidth = availWidth - filterWidth - ImGui.GetStyle().ItemSpacing.X;
+
+        using (var child = ImRaii.Child("FiltersPanel", new Vector2(filterWidth, 0), true))
         {
-            DrawFilters();
+            if (child)
+                DrawFilters();
         }
 
         ImGui.SameLine();
-        using (var group = ImRaii.Group())
+        using (var child = ImRaii.Child("ModulesPanel", new Vector2(moduleWidth, 0), true))
         {
-            DrawModules(tree, ws);
+            if (child)
+                DrawModules(tree, ws);
         }
     }
 
     private void DrawFilters()
     {
-        using var table = ImRaii.Table("Filters", 1, ImGuiTableFlags.BordersOuter | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.SizingFixedSame | ImGuiTableFlags.ScrollY);
+        using var table = ImRaii.Table("Filters", 1, ImGuiTableFlags.BordersInner | ImGuiTableFlags.NoHostExtendX | ImGuiTableFlags.SizingFixedSame);
         if (!table)
         {
             return;
@@ -249,7 +257,7 @@ public sealed class ModuleViewer : IDisposable
 
     private void DrawModules(UITree tree, WorldState ws)
     {
-        using var table = ImRaii.Table("ModulesTable", 2, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.BordersOuter | ImGuiTableFlags.BordersV | ImGuiTableFlags.RowBg | ImGuiTableFlags.ScrollY | ImGuiTableFlags.ScrollX | ImGuiTableFlags.NoHostExtendX);
+        using var table = ImRaii.Table("ModulesTable", 2, ImGuiTableFlags.SizingFixedFit | ImGuiTableFlags.BordersInner | ImGuiTableFlags.BordersV | ImGuiTableFlags.RowBg | ImGuiTableFlags.NoHostExtendX);
         if (!table)
         {
             return;
@@ -287,9 +295,14 @@ public sealed class ModuleViewer : IDisposable
                     {
                         foreach (var mod in group.Modules)
                         {
+                            if (mod.Info.Maturity == BossModuleInfo.Maturity.Dummy)
+                            {
+                                continue;
+                            }
+
                             using (ImRaii.Disabled(mod.Info.ConfigType == null))
                             {
-                                if (UIMisc.IconButton(FontAwesomeIcon.Cog, $"###{mod.Info.ModuleType.FullName}_cfg"))
+                                if (UIMisc.IconButton(FontAwesomeIcon.Cog, $"{mod.Info.ModuleType.FullName}_cfg"))
                                 {
                                     _ = new BossModuleConfigWindow(mod.Info, ws);
                                 }
@@ -298,7 +311,7 @@ public sealed class ModuleViewer : IDisposable
                             ImGui.SameLine();
                             using (ImRaii.Disabled(mod.Info.PlanLevel == 0))
                             {
-                                if (UIMisc.IconButton(FontAwesomeIcon.ClipboardList, $"###{mod.Info.ModuleType.FullName}_plans"))
+                                if (UIMisc.IconButton(FontAwesomeIcon.ClipboardList, $"{mod.Info.ModuleType.FullName}_plans"))
                                 {
                                     ImGui.OpenPopup($"{mod.Info.ModuleType.FullName}_popup");
                                 }
@@ -370,7 +383,10 @@ public sealed class ModuleViewer : IDisposable
                 return (new("The Dalriada", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.TheForkedTowerBlood:
                 return (new("The Forked Tower: Blood", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+            case BossModuleInfo.GroupType.TheForkedTowerMagic:
+                return (new("The Forked Tower: Magic", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
             case BossModuleInfo.GroupType.ForayFATE:
+                groupId |= module.GroupID;
                 var fateRowBozjaSkirmish = Service.LuminaRow<Fate>(module.NameID)!.Value;
                 var skirmishName = $"{FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name)} FATE";
                 return (new(skirmishName, groupId, groupId), new(module, $"{fateRowBozjaSkirmish.Name}", module.SortOrder));
@@ -398,9 +414,9 @@ public sealed class ModuleViewer : IDisposable
                 var nmName = FixCase(Service.LuminaRow<ContentFinderCondition>(module.GroupID)!.Value.Name);
                 return (new(nmName, groupId, groupId), new(module, Service.LuminaRow<Fate>(module.NameID)!.Value.Name.ToString(), module.SortOrder));
             case BossModuleInfo.GroupType.GoldSaucer:
-                return (new("Gold saucer", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
+                return (new("Gold Saucer", groupId, groupId), new(module, $"{Service.LuminaRow<GoldSaucerTextData>(module.GroupID)?.Text}: {BNpcName(module.NameID)}", module.SortOrder));
             default:
-                return (new("Ungrouped", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
+                return (new("Uncategorized", groupId, groupId), new(module, BNpcName(module.NameID), module.SortOrder));
         }
     }
 

@@ -8,7 +8,7 @@
 // - repeat the process until no more actions can be found
 public sealed class ActionQueue
 {
-    public readonly struct Entry(ActionID action, Actor? target, float priority, float expire, float delay, float castTime, Vector3 targetPos, Angle? facingAngle, bool manual)
+    public readonly struct Entry(ActionID action, Actor? target, float priority, float expire, float delay, float castTime, Vector3 targetPos, Angle? facingAngle, bool manual, bool force)
     {
         public readonly ActionID Action = action;
         public readonly Actor? Target = target;
@@ -19,6 +19,7 @@ public sealed class ActionQueue
         public readonly Vector3 TargetPos = targetPos;
         public readonly Angle? FacingAngle = facingAngle;
         public readonly bool Manual = manual;
+        public readonly bool Force = force;
     }
 
     // reference priority guidelines
@@ -49,7 +50,7 @@ public sealed class ActionQueue
     public readonly List<Entry> Entries = [];
 
     public void Clear() => Entries.Clear();
-    public void Push(in ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = default, float castTime = default, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual));
+    public void Push(in ActionID action, Actor? target, float priority, float expire = float.MaxValue, float delay = default, float castTime = default, Vector3 targetPos = default, Angle? facingAngle = null, bool manual = false, bool forced = false) => Entries.Add(new(action, target, priority, expire, delay, castTime, targetPos, facingAngle, manual, forced));
 
     public Entry FindBest(WorldState ws, Actor player, ReadOnlySpan<Cooldown> cooldowns, float animationLock, AIHints hints, float instantAnimLockDelay, bool allowDismount)
     {
@@ -99,7 +100,7 @@ public sealed class ActionQueue
                 best = candidate;
                 deadline = startDelay;
             }
-            else if (CanExecute(ref candidate, def, ws, player, hints, allowDismount))
+            else if (CanExecute(candidate, def, ws, player, hints, allowDismount))
             {
                 // the action can be used right now
                 return candidate;
@@ -108,7 +109,7 @@ public sealed class ActionQueue
         }
 
         // double check that best candidate can be executed before we return it; it may have been promoted to best if a better action was interrupted for example
-        if (CanExecute(ref best, ActionDefinitions.Instance[best.Action], ws, player, hints, allowDismount))
+        if (CanExecute(in best, ActionDefinitions.Instance[best.Action], ws, player, hints, allowDismount))
         {
             return best;
         }
@@ -116,9 +117,9 @@ public sealed class ActionQueue
         return default;
     }
 
-    private bool CanExecute(ref Entry entry, ActionDefinition? def, WorldState ws, Actor player, AIHints hints, bool allowDismount)
+    private bool CanExecute(in Entry entry, ActionDefinition? def, WorldState ws, Actor player, AIHints hints, bool allowDismount)
     {
-        if (entry.Priority >= Priority.ManualEmergency || def == null)
+        if (entry.Priority >= Priority.ManualEmergency || entry.Force || def == null)
         {
             return true; // don't make any assumptions
         }
@@ -127,6 +128,9 @@ public sealed class ActionQueue
         {
             return false;
         }
+
+        if (entry.Target?.Visibility == Visibility.Blocked && def.RequiresLineOfSight)
+            return false;
 
         if (def.ID.Type == ActionType.Item && ws.Client.GetInventoryItemQuantity(def.ID.ID) == 0)
         {
@@ -150,6 +154,6 @@ public sealed class ActionQueue
             }
         }
 
-        return def.ForbidExecute == null || !def.ForbidExecute.Invoke(ws, player, entry, hints);
+        return def.AllowExecute == null || def.AllowExecute.Invoke(ws, player, entry, hints);
     }
 }

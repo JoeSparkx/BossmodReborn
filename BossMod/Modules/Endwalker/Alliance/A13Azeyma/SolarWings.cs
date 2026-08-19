@@ -1,12 +1,12 @@
 ﻿namespace BossMod.Endwalker.Alliance.A13Azeyma;
 
-class SolarWings(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeCone(30f, 75f.Degrees()));
-class SolarWingsL(BossModule module) : SolarWings(module, (uint)AID.SolarWingsL);
-class SolarWingsR(BossModule module) : SolarWings(module, (uint)AID.SolarWingsR);
+abstract class SolarWings(BossModule module, uint aid) : Components.SimpleAOEs(module, aid, new AOEShapeCone(30f, 75f.Degrees()));
+sealed class SolarWingsL(BossModule module) : SolarWings(module, (uint)AID.SolarWingsL);
+sealed class SolarWingsR(BossModule module) : SolarWings(module, (uint)AID.SolarWingsR);
 
-class SolarFlair(BossModule module) : Components.GenericAOEs(module)
+sealed class SolarFlair(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<WPos> _sunstorms = new(6);
+    private readonly List<WPos> _sunstorms = [with(6)];
     private BitMask _adjusted;
 
     private const float _kickDistance = 18f;

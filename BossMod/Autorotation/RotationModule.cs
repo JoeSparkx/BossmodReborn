@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace BossMod.Autorotation;
 
@@ -34,10 +34,17 @@ public enum RotationModuleOrder
     Movement = 3,
 }
 
+public enum PvPCompatibility
+{
+    None,
+    PvPOnly,
+    Any
+}
+
 // the configuration part of the rotation module
 // importantly, it defines constraints (supported classes and level ranges) and strategy configs (with their sets of possible options) used by the module to make its decisions
 // rotation modules can optionally be constrained to a specific boss module, if they are used to implement custom encounter-specific logic - these would only be available in plans for that module
-public sealed record class RotationModuleDefinition(string DisplayName, string Description, string Category, string Author, RotationModuleQuality Quality, BitMask Classes, int MaxLevel, int MinLevel = 1, RotationModuleOrder Order = RotationModuleOrder.Actions, Type? RelatedBossModule = null, bool CanUseWhileRoleplaying = false)
+public sealed record class RotationModuleDefinition(string DisplayName, string Description, string Category, string Author, RotationModuleQuality Quality, BitMask Classes, int MaxLevel, int MinLevel = 1, RotationModuleOrder Order = RotationModuleOrder.Actions, Type? RelatedBossModule = null, bool CanUseWhileRoleplaying = false, PvPCompatibility PvP = PvPCompatibility.None, bool DevMode = false)
 {
     public readonly BitMask Classes = Classes;
     public readonly List<StrategyConfig> Configs = [];
@@ -85,6 +92,13 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
         {
             foreach (var aid in aids)
                 config.AssociatedActions.Add(ActionID.MakeSpell(aid));
+            return this;
+        }
+
+        public ConfigRef<Index> VisibleWhen<TrackIndex>(TrackIndex track, int option) where TrackIndex : Enum
+        {
+            config.VisibleWhenTrack = (int)(object)track;
+            config.VisibleWhenOption = option;
             return this;
         }
     }
@@ -137,6 +151,8 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
 
                     var trackCfg = new StrategyConfigTrack(inner, trackInfo.InternalName ?? field.Name, trackInfo.DisplayName ?? field.Name, trackInfo.UiPriority, renderer);
 
+                    trackCfg.AssociatedActions.AddRange(trackInfo.ActionIDs);
+
                     foreach (var variantName in inner.GetEnumNames())
                     {
                         var variantField = inner.GetField(variantName)!;
@@ -166,7 +182,7 @@ public sealed record class RotationModuleDefinition(string DisplayName, string D
                     continue;
                 }
 
-                if (inner == typeof(int))
+                if (inner == typeof(long))
                 {
                     var attr = field.GetCustomAttribute<NumberAttribute>() ?? new();
                     Configs.Add(new StrategyConfigInt(field.Name, attr.DisplayName, (long)attr.MinValue, (long)attr.MaxValue, attr.UiPriority, attr.Renderer ?? typeof(IntRenderer), attr.Slider, attr.Speed));
@@ -198,6 +214,8 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
     // the main entry point of the module - given a set of strategy values, fill the queue with a set of actions to execute
     public abstract void Execute(StrategyValues strategy, Actor? primaryTarget, float estimatedAnimLockDelay, bool isMoving);
 
+    public virtual bool WantsLoSFix => false;
+
     public virtual string DescribeState() => "";
 
     // utility to check action/trait unlocks
@@ -214,6 +232,16 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
         return default;
     }
 
+    public float MaxChargesIn(ActionID action)
+    {
+        if (ActionDefinitions.Instance[action] is not { } def || !def.IsUnlocked(World, Player))
+            return float.MaxValue;
+
+        return def.ChargeCapIn(World.Client.Cooldowns, World.Client.DutyActions, Player.Level);
+    }
+
+    public float MaxChargesIn<AID>(AID aid) where AID : Enum => MaxChargesIn(ActionID.MakeSpell(aid));
+
     public bool TraitUnlocked(uint id)
     {
         var trait = Service.LuminaRow<Lumina.Excel.Sheets.Trait>(id);
@@ -224,8 +252,9 @@ public abstract class RotationModule(RotationModuleManager manager, Actor player
 
     // utility to resolve the target overrides; returns null on failure - in this case module is expected to run smart-targeting logic
     // expected usage is `ResolveTargetOverride(strategy) ?? CustomSmartTargetingLogic(...)`
-    protected Actor? ResolveTargetOverride(in StrategyValueTrack strategy) => Manager.ResolveTargetOverride(strategy.Target, strategy.TargetParam);
-    protected AIHints.Enemy? ResolveTargetOverride<T>(in Track<T> track) where T : struct => Hints.FindEnemy(Manager.ResolveTargetOverride(track.TrackRaw.Target, track.TrackRaw.TargetParam));
+    protected Actor? ResolveTarget(in StrategyValueTrack strategy) => Manager.ResolveTargetOverride(strategy.Target, strategy.TargetParam);
+    protected Actor? ResolveTarget<T>(in Track<T> track) where T : struct => ResolveTarget(track.TrackRaw);
+    protected AIHints.Enemy? ResolveEnemy<T>(in Track<T> track) where T : struct => Hints.FindEnemy(ResolveTarget(track.TrackRaw));
     protected WPos ResolveTargetLocation(in StrategyValueTrack strategy) => Manager.ResolveTargetLocation(strategy.Target, strategy.TargetParam, strategy.Offset1, strategy.Offset2);
 
     protected float StatusDuration(DateTime expireAt) => Math.Max((float)(expireAt - World.CurrentTime).TotalSeconds, 0.0f);

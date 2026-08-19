@@ -2,7 +2,7 @@ namespace BossMod.Dawntrail.Savage.M08SHowlingBlade;
 
 sealed class TwofoldTempestVoidzone(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly List<AOEInstance> _aoes = [with(3)];
     private readonly AOEShapeCircle circle = new(9f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
@@ -71,7 +71,7 @@ sealed class TwofoldTempestTetherAOE(BossModule module) : Components.InterceptTe
         var side = Tethers[0];
 
         Arena.AddLine(side.Enemy.Position, side.Player.Position);
-        Arena.AddCircle(side.Player.Position, Radius, Colors.Safe);
+        Arena.ZoneCircleOutline(side.Player.Position, Radius, Colors.Safe);
     }
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
@@ -108,7 +108,7 @@ sealed class TwofoldTempestTetherVoidzone(BossModule module) : Components.Interc
         {
             return;
         }
-        Arena.AddCircle(side.Player.Position, Radius);
+        Arena.ZoneCircleOutline(side.Player.Position, Radius);
     }
 }
 

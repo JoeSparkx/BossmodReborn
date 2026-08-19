@@ -3,7 +3,7 @@ namespace BossMod.Stormblood.Alliance.A11Mateus;
 class Froth(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle circle = new(1.4f);
-    public readonly List<AOEInstance> _aoes = new(6);
+    public readonly List<AOEInstance> _aoes = [with(6)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -108,7 +108,7 @@ class Snowpierce(BossModule module) : Components.BaitAwayChargeCast(module, (uin
         for (var i = 0; i < count; ++i)
         {
             var a = froth[i];
-            Arena.AddCircle(a.Position, a.HitboxRadius);
+            Arena.ZoneCircleOutline(a.Position, a.HitboxRadius);
         }
     }
 

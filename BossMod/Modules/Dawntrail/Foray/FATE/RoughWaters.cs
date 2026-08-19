@@ -34,7 +34,7 @@ public enum AID : uint
 
 sealed class Tideline(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(9);
+    private readonly List<AOEInstance> _aoes = [with(9)];
     private static readonly AOEShapeRect rect1 = new(50f, 5f);
     private static readonly AOEShapeRect rect2 = new(50f, 2.5f);
 
@@ -96,7 +96,7 @@ sealed class Tideline(BossModule module) : Components.GenericAOEs(module)
 
 sealed class TwinTentacle(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(2);
+    private readonly List<AOEInstance> _aoes = [with(2)];
     private static readonly AOEShapeCone cone = new(60f, 90f.Degrees());
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -211,4 +211,4 @@ sealed class RoughWatersStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1962)]
-public sealed class RoughWaters(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+public sealed class RoughWaters(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

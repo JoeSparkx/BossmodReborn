@@ -45,7 +45,7 @@ sealed class DecisiveBattleStatus(BossModule module) : BossComponent(module)
 sealed class DecisiveBattleAOEs(BossModule module) : Components.GenericAOEs(module)
 {
     private AOEInstance[] _aoe = [];
-    private readonly List<Polygon> circles = new(3);
+    private readonly List<Polygon> circles = [with(3)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
@@ -63,8 +63,9 @@ sealed class DecisiveBattleAOEs(BossModule module) : Components.GenericAOEs(modu
                 var clipper = new PolygonClipper();
                 exclusiveArea = clipper.Difference(new(exclusiveArea), new(donut.ToPolygon(center)));
 
-                AOEShapeCustom shape = new([.. circles], invertForbiddenZone: true) { Polygon = exclusiveArea };
-                _aoe = [new(shape, center, default, Module.CastFinishAt(spell), Colors.SafeFromAOE)];
+                AOEShapeCustom shape = new(center, [], invertForbiddenZone: true);
+                shape.ReplacePolygon(exclusiveArea, center);
+                _aoe = [new(shape, center, default, Module.CastFinishAt(spell), Colors.SafeFromAOE, shapeDistance: shape.Distance(center, default))];
             }
         }
     }

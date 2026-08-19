@@ -31,7 +31,7 @@ public sealed class ActorState : IEnumerable<Actor>
 
     public List<Operation> CompareToInitial()
     {
-        List<Operation> ops = new(Actors.Count * 5);
+        List<Operation> ops = [with(Actors.Count * 5)];
         foreach (var act in Actors.Values)
         {
             var instanceID = act.InstanceID;
@@ -43,6 +43,14 @@ public sealed class ActorState : IEnumerable<Actor>
             if (act.InCombat)
             {
                 ops.Add(new OpCombat(instanceID, true));
+            }
+            if (act.IsOpenTreasure)
+            {
+                ops.Add(new OpEventOpenTreasure(act.InstanceID));
+            }
+            if (act.Visibility != default)
+            {
+                ops.Add(new OpVisibility(act.InstanceID, act.Visibility));
             }
             if (act.ModelState != default)
             {
@@ -239,7 +247,7 @@ public sealed class ActorState : IEnumerable<Actor>
                 }
                 var effSource = eff.FromTarget ? target : source;
                 var effTarget = eff.AtSource ? source : target;
-                var header = new PendingEffect(ev.GlobalSequence, i, effSource.InstanceID, expiration);
+                var header = new PendingEffect(ev.GlobalSequence, i, effSource.InstanceID, expiration, false);
                 switch (type)
                 {
                     case ActionEffectType.Damage:
@@ -310,7 +318,7 @@ public sealed class ActorState : IEnumerable<Actor>
            .Emit(OID, "X")
            .Emit(SpawnIndex)
            .Emit(LayoutID, "X")
-           .Emit(Name)
+           .EmitName(Name, Type, Class, Level)
            .Emit(NameID)
            .Emit((ushort)Type, "X4")
            .Emit(Class)
@@ -380,6 +388,7 @@ public sealed class ActorState : IEnumerable<Actor>
             actor.NameID = NameID;
             ws.Actors.Renamed.Fire(actor);
         }
+        // note that this op is never triggered for players, so anonymization is unnecessary
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("NAME"u8).Emit(InstanceID, "X8").Emit(Name).Emit(NameID);
     }
 
@@ -448,6 +457,19 @@ public sealed class ActorState : IEnumerable<Actor>
             ws.Actors.IsTargetableChanged.Fire(actor);
         }
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC(Value ? "ATG+"u8 : "ATG-"u8).EmitActor(InstanceID);
+    }
+
+    public Event<Actor> VisibilityChanged = new();
+    public sealed class OpVisibility(ulong instanceID, Visibility value) : Operation(instanceID)
+    {
+        public readonly Visibility Value = value;
+
+        protected override void ExecActor(WorldState ws, Actor actor)
+        {
+            actor.Visibility = Value;
+            ws.Actors.VisibilityChanged.Fire(actor);
+        }
+        public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("AVIS"u8).EmitActor(InstanceID).Emit(Value.Encode());
     }
 
     public Event<Actor> RenderflagsChanged = new();
@@ -814,7 +836,7 @@ public sealed class ActorState : IEnumerable<Actor>
                         for (var j = 0; j < len; ++j)
                         {
                             ref var p = ref pending[j];
-                            if (p.GlobalSequence == prevSeq && p.TargetIndex == prevIdx)
+                            if (p.GlobalSequence == prevSeq && p.TargetIndex == prevIdx && !p.RequiresEffectResult)
                             {
                                 actor.PendingKnockbacks.RemoveAt(j);
                                 goto done;
@@ -835,7 +857,14 @@ public sealed class ActorState : IEnumerable<Actor>
                     var e = effects[i];
                     if (e.Type is >= ActionEffectType.Knockback and <= ActionEffectType.AttractCustom3)
                     {
-                        actor.PendingKnockbacks.Add(new(v.GlobalSequence, v.TargetIndex, v.SourceInstanceID, ws.FutureTime(3d))); // note: sometimes effect can never be applied (eg if source dies shortly after actioneffect), so we need a timeout
+                        // two annoying cases to handle with pending knockback:
+                        // 1: effectresult never arrives
+                        //    * happens if source dies
+                        //    * happens always for some actions, such as Inhale from Traverse Gigant in Pilgrim's Traverse; effect is simply applied on the next globalseq
+                        // 2. effecthandler entry disappears before effectresult arrives; happens when the knockback is not actually applied by the spell
+                        //    * indicated by type=knockback dir=6; knockback is applied some time later by an ActorControl
+                        var requiresEffectResult = e.Type == ActionEffectType.Knockback && Service.LuminaRow<Lumina.Excel.Sheets.Knockback>(e.Value)?.Direction == 6;
+                        actor.PendingKnockbacks.Add(new(v.GlobalSequence, v.TargetIndex, v.SourceInstanceID, ws.FutureTime(3d), requiresEffectResult)); // note: sometimes effect can never be applied (eg if source dies shortly after actioneffect), so we need a timeout
                         break;
                     }
                 }
@@ -940,7 +969,11 @@ public sealed class ActorState : IEnumerable<Actor>
     public Event<Actor> EventOpenTreasure = new();
     public sealed class OpEventOpenTreasure(ulong instanceID) : Operation(instanceID)
     {
-        protected override void ExecActor(WorldState ws, Actor actor) => ws.Actors.EventOpenTreasure.Fire(actor);
+        protected override void ExecActor(WorldState ws, Actor actor)
+        {
+            actor.IsOpenTreasure = true;
+            ws.Actors.EventOpenTreasure.Fire(actor);
+        }
         public override void Write(ReplayRecorder.Output output) => output.EmitFourCC("OPNT"u8).EmitActor(InstanceID);
     }
 }

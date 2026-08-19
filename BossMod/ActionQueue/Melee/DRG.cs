@@ -98,11 +98,11 @@ public enum SID : uint
     TrueNorth = ClassShared.SID.TrueNorth, // applied by True North to self
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly DRGConfig _config = Service.Config.Get<DRGConfig>();
 
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.DragonsongDive, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.TrueThrust);
@@ -142,8 +142,6 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         // hardcoded mechanics
@@ -151,7 +149,7 @@ public sealed class Definitions : IDisposable
         d.RegisterChargeIncreaseTrait(AID.WingedGlide, TraitID.EnhancedWingedGlide);
 
         // elusive jump aiming
-        d.Spell(AID.ElusiveJump)!.TransformAngle = (ws, player, _, _) => _config.ElusiveJump switch
+        d.Spell(AID.ElusiveJump)!.TransformAngle = (ws, player, _) => _config.ElusiveJump switch
         {
             DRGConfig.ElusiveJumpBehavior.CharacterForward => player.Rotation + 180.Degrees(),
             DRGConfig.ElusiveJumpBehavior.CameraBackward => ws.Client.CameraAzimuth + 180.Degrees(),
@@ -167,10 +165,10 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.DoomSpike)!.TransformAction = d.Spell(AID.DraconianFury)!.TransformAction = () => ActionID.MakeSpell(_state.BestDoomSpike);
         //d.Spell(AID.Geirskogul)!.TransformAction = d.Spell(AID.Nastrond)!.TransformAction = () => ActionID.MakeSpell(_state.BestGeirskogul);
 
-        d.Spell(AID.Stardiver)!.ForbidExecute =
-            d.Spell(AID.DragonfireDive)!.ForbidExecute =
-            d.Spell(AID.WingedGlide)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
-        d.Spell(AID.ElusiveJump)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15, backwards: true);
+        d.Spell(AID.Stardiver)!.AllowExecute =
+            d.Spell(AID.DragonfireDive)!.AllowExecute =
+            d.Spell(AID.WingedGlide)!.AllowExecute = ActionPredicate.AllowDashToTarget;
+        d.Spell(AID.ElusiveJump)!.AllowExecute = ActionPredicate.AllowDashFixed(15, backwards: true);
     }
 
     public float EffectApplicationDelay(AID aid) => aid switch

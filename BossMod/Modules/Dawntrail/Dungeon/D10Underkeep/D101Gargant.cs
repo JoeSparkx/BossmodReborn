@@ -33,7 +33,7 @@ sealed class TrapJaws(BossModule module) : Components.SingleTargetDelayableCast(
 sealed class SphereShatter(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle circle = new(6f);
-    private readonly List<AOEInstance> _aoes = new(13);
+    private readonly List<AOEInstance> _aoes = [with(13)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -91,8 +91,16 @@ sealed class D101GargantStates : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027, NameID = 13753)]
-public sealed class D101Gargant(WorldState ws, Actor primary) : BossModule(ws, primary, arena.Center, arena)
+[ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027u, NameID = 13753u)]
+public sealed class D101Gargant : BossModule
 {
-    private static readonly ArenaBoundsCustom arena = new([new Polygon(new(-248f, 122f), 14.5f, 72)]);
+    public D101Gargant(WorldState ws, Actor primary) : this(ws, primary, BuildArena()) { }
+
+    private D101Gargant(WorldState ws, Actor primary, (WPos center, ArenaBoundsCustom arena) a) : base(ws, primary, a.center, a.arena) { }
+
+    private static (WPos center, ArenaBoundsCustom arena) BuildArena()
+    {
+        var arena = new ArenaBoundsCustom([new Polygon(new(-248f, 122f), 14.5f, 72)]);
+        return (arena.Center, arena);
+    }
 }

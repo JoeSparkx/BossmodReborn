@@ -67,7 +67,7 @@ sealed class AiryBubble(BossModule module) : Components.GenericAOEs(module)
     private const float Radius = 1.1f;
     private const float Length = 3f;
     private static readonly AOEShapeCapsule capsule = new(Radius, Length);
-    private readonly List<Actor> _aoes = new(36);
+    private readonly List<Actor> _aoes = [with(36)];
     private bool active;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -142,7 +142,7 @@ sealed class AiryBubble(BossModule module) : Components.GenericAOEs(module)
 sealed class Burst(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle circle = new(6f);
-    private readonly List<AOEInstance> _aoes = new(18);
+    private readonly List<AOEInstance> _aoes = [with(18)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
 
@@ -229,10 +229,13 @@ sealed class WorrisomeWavePlayer(BossModule module) : Components.GenericBaitAway
         {
             ref var b = ref activeBaits[0];
             var party = Raid.WithoutSlot(false, true, true);
+            var pos = actor.Position;
+            var angle = 15f.Degrees();
+            var act = b.Activation;
             var lenP = party.Length;
             for (var j = 0; j < lenP; ++j)
             {
-                hints.ForbiddenDirections.Add((Angle.FromDirection(party[j].Position - actor.Position), 15f.Degrees(), b.Activation));
+                hints.ForbiddenDirections.Add((Angle.FromDirection(party[j].Position - pos), angle, act));
             }
         }
     }

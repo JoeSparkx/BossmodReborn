@@ -17,7 +17,7 @@ sealed class LowVoltage(BossModule module) : Components.CastLineOfSightAOEComple
 
 sealed class SlimeExplosion(BossModule module) : Components.GenericStackSpread(module)
 {
-    private readonly List<Actor> slimes = new(6);
+    private readonly List<Actor> slimes = [with(6)];
 
     public override void OnActorCreated(Actor actor)
     {
@@ -40,7 +40,7 @@ sealed class SlimeExplosion(BossModule module) : Components.GenericStackSpread(m
         var count = slimes.Count;
         for (var i = 0; i < count; ++i)
         {
-            Arena.AddCircle(slimes[i].Position, 7.6f);
+            Arena.ZoneCircleOutline(slimes[i].Position, 7.6f);
         }
     }
 

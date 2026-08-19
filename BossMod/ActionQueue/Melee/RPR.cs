@@ -108,11 +108,11 @@ public enum SID : uint
     TrueNorth = ClassShared.SID.TrueNorth, // applied by True North to self
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly RPRConfig _config = Service.Config.Get<RPRConfig>();
 
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.TheEnd, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.Slice);
@@ -157,23 +157,21 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         d.RegisterChargeIncreaseTrait(AID.SoulSlice, TraitID.TemperedSoul);
         d.RegisterChargeIncreaseTrait(AID.SoulScythe, TraitID.TemperedSoul);
 
-        d.Spell(AID.Harpe)!.ForbidExecute = (ws, player, _, _) => _config.ForbidEarlyHarpe && !player.InCombat && ws.Client.CountdownRemaining > 1.7f;
+        d.Spell(AID.Harpe)!.AllowExecute = (ws, player, _, _) => !(_config.ForbidEarlyHarpe && !player.InCombat && ws.Client.CountdownRemaining > 1.7f);
 
         d.Spell(AID.HellsEgress)!.TransformAngle =
-            d.Spell(AID.HellsIngress)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera
+            d.Spell(AID.HellsIngress)!.TransformAngle = (ws, _, _) => _config.AlignDashToCamera
                 ? ws.Client.CameraAzimuth + 180.Degrees()
                 : null;
 
-        d.Spell(AID.HellsIngress)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
-        d.Spell(AID.HellsEgress)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15, backwards: true);
-        d.Spell(AID.Regress)!.ForbidExecute = ActionDefinitions.DashToPositionCheck;
+        d.Spell(AID.HellsIngress)!.AllowExecute = ActionPredicate.AllowDashFixed(15);
+        d.Spell(AID.HellsEgress)!.AllowExecute = ActionPredicate.AllowDashFixed(15, backwards: true);
+        d.Spell(AID.Regress)!.AllowExecute = ActionPredicate.AllowDashToPosition;
 
         // upgrades (TODO: don't think we actually care...)
         //d.Spell(AID.BloodStalk)!.TransformAction = d.Spell(AID.UnveiledGallows)!.TransformAction = d.Spell(AID.UnveiledGibbet)!.TransformAction = () => ActionID.MakeSpell(_state.Beststalk);

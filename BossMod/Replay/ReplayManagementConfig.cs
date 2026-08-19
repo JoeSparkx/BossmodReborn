@@ -1,7 +1,5 @@
 ﻿namespace BossMod;
 
-public record struct ReplayMemory(string Path, bool IsOpen, DateTime PlaybackPosition);
-
 [ConfigDisplay(Name = "Replays", Order = 0)]
 public sealed class ReplayManagementConfig : ConfigNode
 {
@@ -14,8 +12,11 @@ public sealed class ReplayManagementConfig : ConfigNode
     [PropertyDisplay("Auto record replays on duty start/end or outdoor module start/end")]
     public bool AutoRecord = false;
 
-    [PropertyDisplay("Auto record in Duty Recorder replays", tooltip: "Requires auto-record to be turned on")]
+    [PropertyDisplay("Auto record in Duty Recorder replays")]
     public bool AutoARR = false;
+
+    [PropertyDisplay("Anonymize replays", tooltip: "If this option is disabled, replays will contain personally identifying information for your character and any other player you see during the recording - specifically, names and content IDs.")]
+    public bool Anonymize = false;
 
     [PropertyDisplay("Max replays to keep before removal")]
     [PropertySlider(0, 1000)]
@@ -35,15 +36,5 @@ public sealed class ReplayManagementConfig : ConfigNode
 
     [PropertyDisplay("Format for recorded logs")]
     public ReplayLogFormat WorldLogFormat = ReplayLogFormat.BinaryCompressed;
-
-    [PropertyDisplay("Open previously open replays on plugin reload")]
-    public bool RememberReplays;
-
-    [PropertyDisplay("Remember playback position for previously opened replays")]
-    public bool RememberReplayTimes;
-
-    // TODO: this should not be part of the actual config! figure out where to store transient user preferences...
-    public List<ReplayMemory> ReplayHistory = [];
-
     public string ReplayFolder = "";
 }

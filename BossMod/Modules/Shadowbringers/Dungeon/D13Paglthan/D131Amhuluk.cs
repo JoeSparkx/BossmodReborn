@@ -125,7 +125,7 @@ sealed class LightningBolt(BossModule module) : Components.GenericBaitAway(modul
         var count = freeRods.Count;
         for (var i = 0; i < count; ++i)
         {
-            Arena.AddCircle(freeRods[i].Position, 4f, Colors.Safe);
+            Arena.ZoneCircleOutline(freeRods[i].Position, 4f, Colors.Safe);
         }
     }
 }
@@ -133,7 +133,7 @@ sealed class LightningBolt(BossModule module) : Components.GenericBaitAway(modul
 sealed class Shock(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle circleSmall = new(5f), circleBig = new(10f);
-    private readonly List<AOEInstance> _aoes = new(6);
+    private readonly List<AOEInstance> _aoes = [with(6)];
     private bool first = true;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
@@ -169,7 +169,7 @@ sealed class Shock(BossModule module) : Components.GenericAOEs(module)
 sealed class WideBlasterSpikeFlail(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCone coneWide = new(26f, 60f.Degrees()), coneNarrow = new(25f, 30f.Degrees());
-    private readonly List<AOEInstance> _aoes = new(2);
+    private readonly List<AOEInstance> _aoes = [with(2)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -231,11 +231,11 @@ public sealed class D131Amhuluk(WorldState ws, Actor primary) : BossModule(ws, p
         const float radius = 1.5f;
         const int edges = 16;
         var polygons = new Polygon[8];
-        var poly = new Polygon(default, radius, edges);
-        polygons[0] = poly with { Center = LightningRod };
+
+        polygons[0] = new Polygon(LightningRod, radius, edges);
         for (var i = 1; i < 8; ++i)
         {
-            polygons[i] = poly with { Center = WPos.RotateAroundOrigin(i * 45f, ArenaCenter, LightningRod) };
+            polygons[i] = new Polygon(WPos.RotateAroundOrigin(i * 45f, ArenaCenter, LightningRod), radius, edges);
         }
         return polygons;
     }

@@ -99,6 +99,7 @@ public sealed class AIHintsBuilder : IDisposable
         hints.Normalize();
         if (_rsr != null)
         {
+            hints.RSRDesiredPositional = _rsr.IsInstalled ? _rsr.DesiredPositional : Positional.Any;
             var now = _ws.CurrentTime;
             var soon = now.AddSeconds(0.75d);
             var hasForbiddenDirection = hints.ForbiddenDirections.Count > 0;
@@ -114,7 +115,8 @@ public sealed class AIHintsBuilder : IDisposable
                 _rsr.TriggerSpecialStateWithDuration(RotationSolverRebornModule.SpecialCommandType.NoCasting, finish != default ? (float)(finish - now).TotalSeconds : _config.PyreticThreshold);
                 if (isPyretic)
                 {
-                    hints.ForceCancelCast = true;
+                    //Service.Log("[AMEx] Canceling cast (RSR)");
+                    hints.ForceCancelCastMechanic = true;
                 }
             }
         }
@@ -123,6 +125,8 @@ public sealed class AIHintsBuilder : IDisposable
     // Fill list of potential targets from world state
     private void FillEnemies(AIHints hints, bool playerIsDefaultTank, int priorityPassive = AIHints.Enemy.PriorityUndesirable)
     {
+        var playerY = _ws.Party.Player() is { } p ? p.PosRot.Y : 0f;
+
         var allowedFateID = Utils.IsPlayerSyncedToFate(_ws) ? _ws.Client.ActiveFate.ID : default;
 
         foreach (var actor in _ws.Actors.Actors.Values)
@@ -138,34 +142,13 @@ public sealed class AIHintsBuilder : IDisposable
                 continue;
             }
 
-            int priority;
-            if (actor.FateID != default)
-            {
-                if (actor.FateID != allowedFateID)
-                {
-                    priority = AIHints.Enemy.PriorityInvincible;  // fate mob in fate we are NOT a part of can't be damaged at all
-                }
-                else
-                {
-                    priority = 0; // Relevant fate mob
-                }
-            }
-            else if (actor.PendingDead)
-            {
-                priority = AIHints.Enemy.PriorityPointless; // Mob is about to die
-            }
-            else if (actor.AggroPlayer)
-            {
-                priority = 0; // Aggroed player
-            }
-            else if (actor.InCombat && _ws.Party.FindSlot(actor.TargetID) >= 0)
-            {
-                priority = 0; // Assisting party members
-            }
-            else
-            {
-                priority = priorityPassive; // Default undesirable
-            }
+            // determine default priority for the enemy
+            var (priority, reason) = actor.FateID > 0 && actor.FateID != allowedFateID ? (AIHints.Enemy.PriorityInvincible, $"fate {actor.FateID} != ${allowedFateID}") // fate mob in fate we are NOT a part of can't be damaged at all
+                : MathF.Abs(actor.PosRot.Y - playerY) > 12 ? (AIHints.Enemy.PriorityInvincible, "delta Y") // FIXME: this should be deleted once I work out how raycasting should interact with target priority
+                : actor.PendingDead ? (AIHints.Enemy.PriorityPointless, "dying") // this mob is about to be dead, any attacks will likely ghost
+                : actor.AggroPlayer ? (0, "aggro table") // enemies in our enmity list can be attacked, regardless of who they are targeting (since they are keeping us in combat)
+                : actor.InCombat && _ws.Party.FindSlot(actor.TargetID) >= 0 ? (0, "attacking party") // we generally want to assist our party members (note that it includes allied npcs in duties)
+                : (priorityPassive, "passive"); // this enemy is either not pulled yet or fighting someone we don't care about - try not to aggro it by default
 
             var enemy = hints.Enemies[index] = new(actor, priority, playerIsDefaultTank);
 
@@ -190,8 +173,7 @@ public sealed class AIHintsBuilder : IDisposable
         {
             hints.PathfindMapCenter = new(fate.Center.XZ());
 
-            // if in a big fate with no obstacle map available, reduce resolution to avoid destroying fps
-            // fates don't need precise pathfinding anyway since they are just orange circle simulators
+            // if in a big fate with no obstacle map available, reduce resolution to avoid slowing down rasterization significantly
             if (bitmap == null)
             {
                 resolution = fate.Radius switch
@@ -266,7 +248,10 @@ public sealed class AIHintsBuilder : IDisposable
             var finishAt = _ws.FutureTime(caster.NPCRemainingTime);
             if (aoe.IsCharge)
             {
-                hints.AddForbiddenZone(new SDRect(aoe.Caster.Position.Quantized(), target, ((AOEShapeRect)aoe.Shape).HalfWidth), finishAt, aoe.Caster.InstanceID);
+                if (aoe.Target != player)
+                {
+                    hints.AddForbiddenZone(new SDRect(aoe.Caster.Position.Quantized(), target, ((AOEShapeRect)aoe.Shape).HalfWidth), finishAt, aoe.Caster.InstanceID);
+                }
             }
             else
             {

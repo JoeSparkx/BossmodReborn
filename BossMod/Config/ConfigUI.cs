@@ -40,7 +40,7 @@ public sealed class ConfigUI : IDisposable
         _presets = rotationDB != null ? new(rotationDB) : null;
 
         _tabs.Add("Settings", DrawSettings);
-        _tabs.Add("Supported bosses", () => _mv.Draw(_tree, _ws));
+        _tabs.Add("Supported fights", () => _mv.Draw(_tree, _ws));
         _tabs.Add("Autorotation presets", () => _presets?.Draw());
         _tabs.Add("Slash commands", DrawAvailableCommands);
         _tabs.Add("About", _about.Draw);
@@ -159,6 +159,8 @@ public sealed class ConfigUI : IDisposable
         ( "r", "Opens the replay menu." ),
         ( "r on/off", "Starts/stops recording a replay." ),
         ( "gc", "Triggers the garbage collection." ),
+        ( "radar", "toggles radar display" ),
+        ( "radar on/off", "Sets radar display to on or off." ),
         ( "cfg", "Lists all configs." )
     ];
 
@@ -184,7 +186,7 @@ public sealed class ConfigUI : IDisposable
         ImGui.Separator();
         ImGui.Text("Other commands:");
         ImGui.Separator();
-        for (var i = 0; i < 7; ++i)
+        for (var i = 0; i < 9; ++i)
         {
             ref readonly var text = ref _availableOtherCommands[i];
             ImGui.Text($"/bmr {text.Item1}: {text.Item2}");
@@ -540,13 +542,20 @@ public sealed class ConfigUI : IDisposable
         return modified;
     }
 
-    public static void DrawGroupPresetIndicator()
+    public static void DrawGroupPresetIndicator(string text, Action contextMenu)
     {
         ImGui.AlignTextToFramePadding();
-        UIMisc.IconText(Dalamud.Interface.FontAwesomeIcon.ListUl);
+        if (UIMisc.IconButton(Dalamud.Interface.FontAwesomeIcon.ListUl, $"###{text}open"))
+            ImGui.OpenPopup($"{text}popup");
+
+        if (ImGui.BeginPopup($"{text}popup"))
+        {
+            contextMenu();
+            ImGui.EndPopup();
+        }
         if (ImGui.IsItemHovered())
         {
-            ImGui.SetTooltip("This configuration option includes presets. Right click on the dropdown to select a preset.");
+            ImGui.SetTooltip("Select a preset");
         }
 
         ImGui.SameLine();
@@ -579,7 +588,7 @@ public sealed class ConfigUI : IDisposable
         if (hasPreset)
         {
             spaced = true;
-            DrawGroupPresetIndicator();
+            DrawGroupPresetIndicator(label, () => DrawPropertyContextMenu(node, member, v));
         }
 
         if (!spaced)
@@ -591,7 +600,7 @@ public sealed class ConfigUI : IDisposable
         }
 
         var modified = false;
-        foreach (var tn in tree.Node(label, false, v.Validate() ? Colors.TextColor1 : Colors.TextColor2, () => DrawPropertyContextMenu(node, member, v)))
+        foreach (var tn in tree.Node(label, false, v.Validate() ? Colors.TextColor1 : Colors.TextColor2))
         {
             using var indent = ImRaii.PushIndent();
             using var table = ImRaii.Table("table", group.Names.Length + 2, ImGuiTableFlags.SizingFixedFit);

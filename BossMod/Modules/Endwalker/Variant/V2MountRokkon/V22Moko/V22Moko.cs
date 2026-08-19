@@ -15,11 +15,19 @@ sealed class Explosion(BossModule module) : Components.SimpleAOEs(module, (uint)
     {
         var count = Casters.Count;
         if (count == 0)
+        {
             return [];
+        }
         var aoes = CollectionsMarshal.AsSpan(Casters);
-        ref readonly var aoe0 = ref aoes[0];
-        ref readonly var aoe1 = ref aoes[1];
-        var hasDifferentRotations = count > 1 && aoe0.Rotation != aoe1.Rotation;
+
+        var hasDifferentRotations = false;
+        if (count > 1)
+        {
+            ref var aoe0 = ref aoes[0];
+            ref var aoe1 = ref aoes[1];
+            hasDifferentRotations = aoe0.Rotation != aoe1.Rotation;
+        }
+
         var max = count > MaxCasts ? MaxCasts : count;
 
         for (var i = 0; i < max; ++i)
@@ -40,4 +48,4 @@ public sealed class V22MokoOtherPaths(WorldState ws, Actor primary) : V22Moko(ws
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", PrimaryActorOID = (uint)OID.MokoP2, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 945u, NameID = 12357u, SortOrder = 4, Category = BossModuleInfo.Category.VariantCriterion, Expansion = BossModuleInfo.Expansion.Endwalker)]
 public sealed class V22MokoPath2(WorldState ws, Actor primary) : V22Moko(ws, primary);
 
-public abstract class V22Moko(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaChange.ArenaCenter, new ArenaBoundsSquare(24.5f));
+public abstract class V22Moko(WorldState ws, Actor primary) : BossModule(ws, primary, new(-700f, 540f), new ArenaBoundsSquare(24.5f));

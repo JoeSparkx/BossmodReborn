@@ -182,9 +182,9 @@ public enum SID : uint
     AethericMimicryHealer = 2126,
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.Whistle);
         d.RegisterSpell(AID.TheRoseOfDestruction);
@@ -321,12 +321,10 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.FlyingFrenzy)!.ForbidExecute = d.Spell(AID.JKick)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
+        d.Spell(AID.FlyingFrenzy)!.AllowExecute = d.Spell(AID.JKick)!.AllowExecute = ActionPredicate.AllowDashToTarget;
 
-        d.Spell(AID.Loom)!.ForbidExecute = ActionDefinitions.DashToPositionCheck;
+        d.Spell(AID.Loom)!.AllowExecute = ActionPredicate.AllowDashToPosition;
     }
 }

@@ -88,7 +88,7 @@ class Shackles(BossModule module) : BossComponent(module)
 
         var drawBlueAroundMe = false;
         var drawRedAroundMe = false;
-        foreach ((var i, var actor) in Raid.WithSlot())
+        foreach ((var i, var actor) in Raid.WithSlot(true, true, true))
         {
             var blueTetheredTo = _blueTetherMatrix[i];
             var redTetheredTo = _redTetherMatrix[i];
@@ -100,9 +100,9 @@ class Shackles(BossModule module) : BossComponent(module)
 
             // draw explosion circles that hit me
             if (_blueExplosionMatrix[pcSlot, i])
-                Arena.AddCircle(actor.Position, _blueExplosionRadius, Colors.Danger);
+                Arena.ZoneCircleOutline(actor.Position, _blueExplosionRadius, Colors.Danger);
             if (_redExplosionMatrix[pcSlot, i])
-                Arena.AddCircle(actor.Position, _redExplosionRadius, Colors.Danger);
+                Arena.ZoneCircleOutline(actor.Position, _redExplosionRadius, Colors.Danger);
 
             drawBlueAroundMe |= _blueExplosionMatrix[i, pcSlot];
             drawRedAroundMe |= _redExplosionMatrix[i, pcSlot];
@@ -110,62 +110,62 @@ class Shackles(BossModule module) : BossComponent(module)
 
         // draw explosion circles if I hit anyone
         if (drawBlueAroundMe)
-            Arena.AddCircle(pc.Position, _blueExplosionRadius, Colors.Danger);
+            Arena.ZoneCircleOutline(pc.Position, _blueExplosionRadius, Colors.Danger);
         if (drawRedAroundMe)
-            Arena.AddCircle(pc.Position, _redExplosionRadius, Colors.Danger);
+            Arena.ZoneCircleOutline(pc.Position, _redExplosionRadius, Colors.Danger);
 
         // draw assigned spot, if any
         if (_preferredPositions[pcSlot] != new WPos())
-            Arena.AddCircle(_preferredPositions[pcSlot], 2, Colors.Safe);
+            Arena.ZoneCircleOutline(_preferredPositions[pcSlot], 2, Colors.Safe);
 
     }
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.ShacklesOfCompanionship0:
+            case (uint)SID.ShacklesOfCompanionship0:
                 _debuffsBlueFuture.Set(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.ShacklesOfCompanionship1:
+            case (uint)SID.ShacklesOfCompanionship1:
                 _debuffsBlueFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 0, false);
                 break;
-            case SID.ShacklesOfCompanionship2:
+            case (uint)SID.ShacklesOfCompanionship2:
                 _debuffsBlueFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 1, false);
                 break;
-            case SID.ShacklesOfCompanionship3:
+            case (uint)SID.ShacklesOfCompanionship3:
                 _debuffsBlueFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 2, false);
                 break;
-            case SID.ShacklesOfCompanionship4:
+            case (uint)SID.ShacklesOfCompanionship4:
                 _debuffsBlueFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 3, false);
                 break;
-            case SID.ShacklesOfLoneliness0:
+            case (uint)SID.ShacklesOfLoneliness0:
                 _debuffsRedFuture.Set(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.ShacklesOfLoneliness1:
+            case (uint)SID.ShacklesOfLoneliness1:
                 _debuffsRedFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 0, true);
                 break;
-            case SID.ShacklesOfLoneliness2:
+            case (uint)SID.ShacklesOfLoneliness2:
                 _debuffsRedFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 1, true);
                 break;
-            case SID.ShacklesOfLoneliness3:
+            case (uint)SID.ShacklesOfLoneliness3:
                 _debuffsRedFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 2, true);
                 break;
-            case SID.ShacklesOfLoneliness4:
+            case (uint)SID.ShacklesOfLoneliness4:
                 _debuffsRedFuture.Set(Raid.FindSlot(actor.InstanceID));
                 AssignOrder(actor, 3, true);
                 break;
-            case SID.InescapableCompanionship:
+            case (uint)SID.InescapableCompanionship:
                 _debuffsBlueImminent.Set(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.InescapableLoneliness:
+            case (uint)SID.InescapableLoneliness:
                 _debuffsRedImminent.Set(Raid.FindSlot(actor.InstanceID));
                 break;
         }
@@ -173,27 +173,27 @@ class Shackles(BossModule module) : BossComponent(module)
 
     public override void OnStatusLose(Actor actor, ref ActorStatus status)
     {
-        switch ((SID)status.ID)
+        switch (status.ID)
         {
-            case SID.ShacklesOfCompanionship0:
-            case SID.ShacklesOfCompanionship1:
-            case SID.ShacklesOfCompanionship2:
-            case SID.ShacklesOfCompanionship3:
-            case SID.ShacklesOfCompanionship4:
+            case (uint)SID.ShacklesOfCompanionship0:
+            case (uint)SID.ShacklesOfCompanionship1:
+            case (uint)SID.ShacklesOfCompanionship2:
+            case (uint)SID.ShacklesOfCompanionship3:
+            case (uint)SID.ShacklesOfCompanionship4:
                 _debuffsBlueFuture.Clear(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.ShacklesOfLoneliness0:
-            case SID.ShacklesOfLoneliness1:
-            case SID.ShacklesOfLoneliness2:
-            case SID.ShacklesOfLoneliness3:
-            case SID.ShacklesOfLoneliness4:
+            case (uint)SID.ShacklesOfLoneliness0:
+            case (uint)SID.ShacklesOfLoneliness1:
+            case (uint)SID.ShacklesOfLoneliness2:
+            case (uint)SID.ShacklesOfLoneliness3:
+            case (uint)SID.ShacklesOfLoneliness4:
                 _debuffsRedFuture.Clear(Raid.FindSlot(actor.InstanceID));
                 break;
-            case SID.InescapableCompanionship:
+            case (uint)SID.InescapableCompanionship:
                 _debuffsBlueImminent.Clear(Raid.FindSlot(actor.InstanceID));
                 ++NumExpiredDebuffs;
                 break;
-            case SID.InescapableLoneliness:
+            case (uint)SID.InescapableLoneliness:
                 _debuffsRedImminent.Clear(Raid.FindSlot(actor.InstanceID));
                 ++NumExpiredDebuffs;
                 break;

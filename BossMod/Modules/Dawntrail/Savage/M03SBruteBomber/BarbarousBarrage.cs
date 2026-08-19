@@ -15,7 +15,7 @@ sealed class BarbarousBarrageTowers(BossModule module) : Components.GenericTower
             var positions = TowerPositions(CurState == State.NextNS ? State.NextCorners : CurState + 1);
             var count = positions.Count;
             for (var i = 0; i < count; ++i)
-                Arena.AddCircle(positions[i], 4f, Colors.Object);
+                Arena.ZoneCircleOutline(positions[i], 4f, Colors.Object);
         }
     }
 
@@ -56,7 +56,7 @@ sealed class BarbarousBarrageTowers(BossModule module) : Components.GenericTower
 
     private List<WPos> TowerPositions(State state)
     {
-        List<WPos> towers = new(4);
+        List<WPos> towers = [with(4)];
         var pos = Arena.Center;
         switch (state)
         {

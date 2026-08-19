@@ -53,6 +53,9 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
         [Option("Ifrit dash", MinLevel = 86, Targets = ActionTargets.Hostile)]
         public Track<EnabledByDefault> Cyclone;
 
+        [Track(Action = AID.Swiftcast)]
+        public Track<EnabledByDefault> Swiftcast;
+
         readonly Targeting IStrategyCommon.Targeting => Targeting.Value;
         readonly AOEStrategy IStrategyCommon.AOE => AOE.Value;
     }
@@ -268,13 +271,13 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
         }
 
         if (Favor == Favor.Ifrit && strategy.Cyclone.IsEnabled())
-            PushGCD(AID.CrimsonCyclone, ResolveTargetOverride(strategy.Cyclone) ?? BestAOETarget);
+            PushGCD(AID.CrimsonCyclone, ResolveEnemy(strategy.Cyclone) ?? BestAOETarget);
 
         if (SummonLeft <= GCD)
         {
             // TODO make this configurable - this will summon baha/phoenix and ignore current gems
             // balance says to default to summons if you don't know whether you will lose a usage or not
-            if (ReadyIn(AID.Aethercharge) <= GCD && Player.InCombat)
+            if (GCDReady(AID.Aethercharge) && Player.InCombat)
             {
                 if (!Unlocked(AID.DreadwyrmTrance) || DowntimeIn > GCD + 15)
                     // scarlet flame and wyrmwave are both single target, this is ok
@@ -304,7 +307,7 @@ public sealed class SMN(RotationModuleManager manager, Actor player) : Castxan<A
 
     private void OGCDs(in Strategy strategy, Enemy? primaryTarget)
     {
-        if (NextGCD == AID.Slipstream)
+        if (NextGCD == AID.Slipstream && strategy.Swiftcast.IsEnabled())
             PushOGCD(AID.Swiftcast, Player);
 
         if (!Player.InCombat || primaryTarget == null)

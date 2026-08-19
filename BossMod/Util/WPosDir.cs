@@ -32,6 +32,7 @@ public readonly struct WDir(float x, float z)
     public readonly WDir OrthoR() => new(-Z, X); // CW, same length
     public readonly WDir MirrorX() => new(-X, Z);
     public readonly WDir MirrorZ() => new(X, -Z);
+    public static float Dot(WDir a, WDir b) => a.X * b.X + a.Z * b.Z;
     public readonly float Dot(WDir a) => X * a.X + Z * a.Z;
     public readonly float Cross(WDir b) => X * b.Z - Z * b.X;
     public readonly WDir Rotate(WDir dir)
@@ -126,11 +127,13 @@ public readonly struct WPos(float x, float z)
     public static WPos RotateAroundOrigin(float rotateByDegrees, WPos origin, WPos point)
     {
         var (sin, cos) = ((float, float))Math.SinCos(rotateByDegrees * Angle.DegToRad);
-        var deltaX = point.X - origin.X;
-        var deltaZ = point.Z - origin.Z;
+        var originX = origin.X;
+        var originZ = origin.Z;
+        var deltaX = point.X - originX;
+        var deltaZ = point.Z - originZ;
         var rotatedX = cos * deltaX - sin * deltaZ;
         var rotatedZ = sin * deltaX + cos * deltaZ;
-        return new(origin.X + rotatedX, origin.Z + rotatedZ);
+        return new(originX + rotatedX, originZ + rotatedZ);
     }
 
     public static WPos[] GenerateRotatedVertices(WPos center, WPos[] vertices, float rotationAngle)

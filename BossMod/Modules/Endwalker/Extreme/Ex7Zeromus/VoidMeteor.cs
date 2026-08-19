@@ -13,10 +13,10 @@ sealed class MeteorImpactCharge(BossModule module) : Components.GenericAOEs(modu
     }
 
     private int _numTethers;
-    private readonly List<WPos> _meteors = new(18);
+    private readonly List<WPos> _meteors = [with(18)];
     private readonly PlayerState[] _playerStates = new PlayerState[PartyState.MaxPartySize];
     private AOEInstance[] _aoe = [];
-    private readonly List<PolygonCustom> polygons = new(18);
+    private readonly List<PolygonCustom> polygons = [with(18)];
 
     private const float _radius = 2f;
     private const float _ownThickness = 2f;
@@ -61,7 +61,7 @@ sealed class MeteorImpactCharge(BossModule module) : Components.GenericAOEs(modu
                 {
                     polygons.Add(new PolygonCustom(BuildShadowPolygon(pos - center, _meteors[i] - center, error)));
                 }
-                var aoe = new AOEShapeCustom([.. polygons]);
+                var aoe = new AOEShapeCustom(center, [.. polygons]);
                 _aoe = [new(aoe, center, shapeDistance: aoe.Distance(center, default))];
             }
         }
@@ -73,7 +73,7 @@ sealed class MeteorImpactCharge(BossModule module) : Components.GenericAOEs(modu
         var count = _meteors.Count;
         for (var i = 0; i < count; ++i)
         {
-            Arena.AddCircle(_meteors[i], _radius, Colors.Object);
+            Arena.ZoneCircleOutline(_meteors[i], _radius, Colors.Object);
         }
 
         foreach (var (slot, target) in Raid.WithSlot(true, true, true))
@@ -96,7 +96,7 @@ sealed class MeteorImpactCharge(BossModule module) : Components.GenericAOEs(modu
 
         // circle showing approximate min stretch distance; for second order, we might be forced to drop meteor there and die to avoid wipe
         if (SourceIfActive(pcSlot) is var pcSource && pcSource != null)
-            Arena.AddCircle(pcSource.Position, 26f);
+            Arena.ZoneCircleOutline(pcSource.Position, 26f);
     }
 
     public override void OnEventCast(Actor caster, ActorCastEvent spell)
@@ -155,7 +155,7 @@ sealed class MeteorImpactCharge(BossModule module) : Components.GenericAOEs(modu
         var halfAngleFromMeteor = 90f.Degrees() - halfAngle;
         var circlearc = CurveApprox.CircleArc(_radius * 2, dirFromMeteor + halfAngleFromMeteor, dirFromMeteor - halfAngleFromMeteor, maxerror);
         var count = circlearc.Length;
-        WPos[] vertices = new WPos[count + 2];
+        var vertices = new WPos[count + 2];
         for (var i = 0; i < count; ++i)
         {
             vertices[i] = meteorOffset + circlearc[i] + center;

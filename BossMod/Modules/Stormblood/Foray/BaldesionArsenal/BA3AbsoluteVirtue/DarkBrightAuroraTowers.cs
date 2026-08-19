@@ -3,7 +3,7 @@ namespace BossMod.Stormblood.Foray.BaldesionArsenal.BA3AbsoluteVirtue;
 sealed class BrightDarkAuroraExplosion(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCircle circle = new(8f);
-    private readonly List<(Actor source, ulong target)> tetherByActor = new(8);
+    private readonly List<(Actor source, ulong target)> tetherByActor = [with(8)];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
     {
@@ -47,7 +47,7 @@ sealed class BrightDarkAuroraExplosion(BossModule module) : Components.GenericAO
 
 abstract class Towers(BossModule module, uint oid, uint tid) : Components.GenericTowersOpenWorld(module)
 {
-    private readonly List<(Actor source, Actor target)> tetherByActor = new(4);
+    private readonly List<(Actor source, Actor target)> tetherByActor = [with(4)];
     private const string Hint = "Stand in a tower of opposite tether element!";
 
     public override void OnActorEAnim(Actor actor, uint state)
@@ -56,12 +56,13 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
         {
             var count = Towers.Count;
             var pos = actor.Position;
+            var towers = CollectionsMarshal.AsSpan(Towers);
             for (var i = 0; i < count; ++i)
             {
-                if (Towers[i].Position == pos)
+                if (towers[i].Position == pos)
                 {
                     Towers.RemoveAt(i);
-                    break;
+                    return;
                 }
             }
         }
@@ -70,19 +71,25 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
     public override void OnActorCreated(Actor actor)
     {
         if (actor.OID == oid)
+        {
             Towers.Add(new(actor.Position, 2f, 1, 1, [], WorldState.FutureTime(20d)));
+        }
     }
 
     public override void OnTethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == tid)
+        {
             tetherByActor.Add((source, WorldState.Actors.Find(tether.Target)!));
+        }
     }
 
     public override void OnUntethered(Actor source, in ActorTetherInfo tether)
     {
         if (tether.ID == tid)
+        {
             tetherByActor.Remove((source, WorldState.Actors.Find(tether.Target)!));
+        }
     }
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
@@ -107,9 +114,10 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
         {
             var soakedIndex = -1;
             var countT = Towers.Count;
+            var towers = CollectionsMarshal.AsSpan(Towers);
             for (var i = 0; i < countT; ++i)
             {
-                var t = Towers[i];
+                ref var t = ref towers[i];
                 t.InitializeAllowedSoakers(Module);
                 if (t.AllowedSoakers!.Contains(actor) && t.IsInside(actor))
                 {
@@ -118,12 +126,18 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
                 }
             }
             if (soakedIndex == -1)
+            {
                 hints.Add(Hint);
+            }
             else
+            {
                 hints.Add(Hint, false);
+            }
         }
         else
+        {
             base.AddHints(slot, actor, hints);
+        }
     }
 
     public override void DrawArenaForeground(int pcSlot, Actor pc)
@@ -131,7 +145,9 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
         base.DrawArenaForeground(pcSlot, pc);
         var count = tetherByActor.Count;
         if (count == 0)
+        {
             return;
+        }
 
         Actor? source = null;
         for (var i = 0; i < count; ++i)
@@ -146,7 +162,7 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
         if (source != null)
         {
             Arena.AddLine(source.Position, pc.Position);
-            Arena.AddCircle(source.Position, 2f);
+            Arena.ZoneCircleOutline(source.Position, 2f);
             Arena.Actor(source, Colors.Object, true);
         }
     }
@@ -156,11 +172,16 @@ abstract class Towers(BossModule module, uint oid, uint tid) : Components.Generi
         var count = Towers.Count;
         if (count == 0)
             return;
-        HashSet<Actor> allowed = new(4);
+        HashSet<Actor> allowed = [with(4)];
         for (var i = 0; i < tetherByActor.Count; ++i)
+        {
             allowed.Add(tetherByActor[i].target);
+        }
+        var towers = CollectionsMarshal.AsSpan(Towers);
         for (var i = 0; i < count; ++i)
-            Towers[i].AllowedSoakers = allowed;
+        {
+            towers[i].AllowedSoakers = allowed;
+        }
     }
 }
 

@@ -120,10 +120,10 @@ public enum SID : uint
     Peloton = ClassShared.SID.Peloton, // applied by Peloton to self/party
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly DNCConfig _config = Service.Config.Get<DNCConfig>();
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.CrimsonLotus, true, castAnimLock: 3.70f); // animLock=???, castAnimLock=3.700
         d.RegisterSpell(AID.Cascade, true);
@@ -175,18 +175,16 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         // hardcoded mechanics
         d.RegisterChargeIncreaseTrait(AID.EnAvant, TraitID.EnhancedEnAvantII);
         d.RegisterChargeIncreaseTrait(AID.EnAvant, TraitID.EnhancedEnAvant);
 
-        d.Spell(AID.EnAvant)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera
+        d.Spell(AID.EnAvant)!.TransformAngle = (ws, _, _) => _config.AlignDashToCamera
             ? ws.Client.CameraAzimuth + 180.Degrees()
             : null;
 
-        d.Spell(AID.EnAvant)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(10);
+        d.Spell(AID.EnAvant)!.AllowExecute = ActionPredicate.AllowDashFixed(10);
     }
 }

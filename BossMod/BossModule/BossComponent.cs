@@ -76,4 +76,71 @@ public class BossComponent(BossModule module)
     protected WorldState WorldState => Module.WorldState;
     protected PartyState Raid => Module.Raid;
     protected void ReportError(string message) => Module.ReportError(this, message);
+
+    // utility to try to determine who has the highest enmity in the party
+    // this is useful for a lot of savage mechanics, but we only get this information if the player is currently targeting the relevant enemy (:/), so we allow fallback behavior of returning players in order tank -> dps -> healer -> (other)
+    public List<(int, Actor)> RaidWithSlotByEnmity(Actor primaryTarget, bool allowGuessing = true)
+    {
+        var table = WorldState.Client.CurrentTargetHate;
+        var withSlot = Raid.WithSlot();
+        var count = withSlot.Length;
+        if (table.InstanceID != primaryTarget.InstanceID)
+        {
+            if (!allowGuessing)
+                return [];
+
+            var guessed = new List<(int Key, int Index, (int, Actor) Value)>(count);
+            for (var i = 0; i < count; ++i)
+            {
+                var r = withSlot[i];
+                // if boss is targeting a specific person, we know they are #1
+                var key = primaryTarget.TargetID == r.Item2.InstanceID
+                    ? 0
+                    : r.Item2.Role switch
+                    {
+                        Role.Tank => 1,
+                        Role.Melee or Role.Ranged => 2,
+                        Role.Healer => 3,
+                        _ => 4
+                    };
+                guessed.Add((key, i, r));
+            }
+            guessed.Sort((a, b) => a.Key != b.Key ? a.Key.CompareTo(b.Key) : a.Index.CompareTo(b.Index));
+            var guessedResult = new List<(int, Actor)>(count);
+            for (var i = 0; i < guessed.Count; ++i)
+                guessedResult.Add(guessed[i].Value);
+            return guessedResult;
+        }
+
+        var targets = table.Targets;
+        var result = new List<(int Enmity, int Index, (int, Actor) Value)>(count);
+        for (var i = 0; i < count; ++i)
+        {
+            var r = withSlot[i];
+            var instanceID = r.Item2.InstanceID;
+            for (var j = 0; j < targets.Length; ++j)
+            {
+                if (targets[j].InstanceID == instanceID)
+                {
+                    if (targets[j].InstanceID > 0)
+                        result.Add((targets[j].Enmity, i, r));
+                    break;
+                }
+            }
+        }
+        result.Sort((a, b) => a.Enmity != b.Enmity ? b.Enmity.CompareTo(a.Enmity) : a.Index.CompareTo(b.Index));
+        var final = new List<(int, Actor)>(result.Count);
+        for (var i = 0; i < result.Count; ++i)
+            final.Add(result[i].Value);
+        return final;
+    }
+
+    public List<Actor> RaidByEnmity(Actor primaryTarget, bool allowGuessing = true)
+    {
+        var withSlot = RaidWithSlotByEnmity(primaryTarget, allowGuessing);
+        var result = new List<Actor>(withSlot.Count);
+        for (var i = 0; i < withSlot.Count; ++i)
+            result.Add(withSlot[i].Item2);
+        return result;
+    }
 }

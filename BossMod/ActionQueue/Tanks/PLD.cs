@@ -98,10 +98,11 @@ public enum SID : uint
     Reprisal = ClassShared.SID.Reprisal, // applied by Reprisal to target
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly PLDConfig _config = Service.Config.Get<PLDConfig>();
-    public Definitions(ActionDefinitions d)
+
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.LastBastion, instantAnimLock: 3.86f);
         d.RegisterSpell(AID.FastBlade);
@@ -147,11 +148,9 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.PassageOfArms)!.TransformAngle = (ws, player, _, _) => _config.Wings switch
+        d.Spell(AID.PassageOfArms)!.TransformAngle = (ws, player, _) => _config.Wings switch
         {
             PLDConfig.WingsBehavior.CharacterForward => player.Rotation + 180.Degrees(),
             PLDConfig.WingsBehavior.CameraBackward => ws.Client.CameraAzimuth + 180.Degrees(),
@@ -160,8 +159,8 @@ public sealed class Definitions : IDisposable
         };
 
         d.Spell(AID.Intervention)!.SmartTarget = ActionDefinitions.SmartTargetCoTank;
-        d.Spell(AID.HolySpirit)!.ForbidExecute = (ws, player, _, _) => _config.ForbidEarlyHolySpirit && !player.InCombat && ws.Client.CountdownRemaining > 1.75f;
-        d.Spell(AID.ShieldLob)!.ForbidExecute = (ws, player, _, _) => _config.ForbidEarlyShieldLob && !player.InCombat && ws.Client.CountdownRemaining > 0.7f;
+        d.Spell(AID.HolySpirit)!.AllowExecute = (ws, player, _, _) => !(_config.ForbidEarlyHolySpirit && !player.InCombat && ws.Client.CountdownRemaining > 1.75f);
+        d.Spell(AID.ShieldLob)!.AllowExecute = (ws, player, _, _) => !(_config.ForbidEarlyShieldLob && !player.InCombat && ws.Client.CountdownRemaining > 0.7f);
         //d.Spell(AID.LastBastion)!.EffectDuration = 8;
         //d.Spell(AID.FightOrFlight)!.EffectDuration = 20;
         //d.Spell(AID.Sheltron)!.EffectDuration = 4; // TODO: duration increases to 6...
@@ -171,6 +170,6 @@ public sealed class Definitions : IDisposable
         //d.Spell(AID.DivineVeil)!.EffectDuration = 30;
         // TODO: Intervention effect duration?
 
-        d.Spell(AID.Intervene)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
+        d.Spell(AID.Intervene)!.AllowExecute = ActionPredicate.AllowDashToTarget;
     }
 }

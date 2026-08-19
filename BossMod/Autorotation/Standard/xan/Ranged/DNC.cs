@@ -75,12 +75,6 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
 
     private bool HaveTarget(Enemy? primaryTarget) => NumAOETargets > 1 || primaryTarget != null;
 
-    private static float GetApplicationDelay(AID aid) => aid switch
-    {
-        AID.StandardFinish or AID.SingleStandardFinish or AID.DoubleStandardFinish => 0.54f,
-        _ => 0
-    };
-
     public override void Exec(in Strategy strategy, Enemy? primaryTarget)
     {
         SelectPrimaryTarget(strategy, ref primaryTarget, range: 25);
@@ -127,9 +121,10 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
 
         OGCD(strategy, primaryTarget);
 
-        var approach = IsDancing || ReadyIn(AID.StandardStep) <= GCD || ReadyIn(AID.TechnicalStep) <= GCD;
+        var approach = IsDancing || GCDReady(AID.StandardStep) || GCDReady(AID.TechnicalStep);
 
-        GoalZoneCombined(strategy, approach ? 15 : 25, Hints.GoalAOECircle(IsDancing ? 15 : 5), AID.StandardFinish, 2);
+        // dance: subtract 0.5 for player hitbox since pbaoes don't include that
+        GoalZoneCombined(strategy, approach ? 14.5f : 25, Hints.GoalAOECircle(IsDancing ? 15 : 5), AID.StandardFinish, 2);
 
         if (IsDancing)
         {
@@ -153,7 +148,7 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
             return;
         }
 
-        if (ShouldTechStep(strategy) && ReadyIn(AID.TechnicalStep) <= GCDLength)
+        if (ShouldTechStep(strategy) && GCDReady(AID.TechnicalStep))
             PushGCD(AID.TechnicalStep, Player);
 
         var shouldStdStep = ShouldStdStep(strategy);
@@ -350,15 +345,18 @@ public sealed class DNC(RotationModuleManager manager, Actor player) : Attackxan
         var partner = p.Value switch
         {
             PartnerStrategy.Automatic => FindAutoPartner(),
-            PartnerStrategy.SelectTarget => ResolveTargetOverride(p.TrackRaw),
+            PartnerStrategy.SelectTarget => ResolveTarget(p.TrackRaw),
             _ => null
         };
 
         if (partner != null)
         {
             // target is in cutscene, we're probably in a raid or something - wait for it to finish
-            if (World.Party.Members[World.Party.FindSlot(partner.InstanceID)].InCutscene)
+            var slotIndex = World.Party.FindSlot(partner.InstanceID);
+            if (slotIndex >= 0 && World.Party.Members[slotIndex].InCutscene)
+            {
                 return null;
+            }
         }
 
         return partner;

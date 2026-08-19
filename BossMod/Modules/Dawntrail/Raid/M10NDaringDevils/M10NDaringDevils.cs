@@ -34,7 +34,7 @@ sealed class SickSwellKB(BossModule module) : Components.SimpleKnockbacks(
     module,
     (uint)AID.SickSwell1,   // boss cast is the clean trigger
     distance: 10f,
-    kind: Components.SimpleKnockbacks.Kind.DirForward,
+    kind: Kind.DirForward,
     stopAtWall: false) // outside wall is deadly
 {
     // Conservative "treat all circles as this radius" for the PlusAOECircles helper.
@@ -81,7 +81,7 @@ sealed class SickSwellKB(BossModule module) : Components.SimpleKnockbacks(
         AddCircleOriginsFrom(Module.FindComponent<PyrotationPuddles>(), slot, actor, act, res);
         AddCircleOriginsFrom(Module.FindComponent<AlleyOopInfernoPuddles>(), slot, actor, act, res);
 
-        return res.Count > 0 ? res.ToArray() : [];
+        return res.Count > 0 ? [.. res] : [];
     }
 
     private static void AddCircleOriginsFrom(Components.GenericAOEs? comp, int slot, Actor actor, DateTime act, List<WPos> dst)
@@ -104,18 +104,10 @@ sealed class SickSwellKB(BossModule module) : Components.SimpleKnockbacks(
     }
 }
 
-
 // Pyrotation stack marker (helper->players, no cast, range 6 circle).
-sealed class PyrotationStack(BossModule module) : Components.StackWithIcon(
-    module,
-    (uint)IconID.FireStack, // 659
-    (uint)AID.Pyrotation1,
-    activationDelay: 5f,
-    radius: 6f,
-    minStackSize: 2,
-    maxStackSize: 8);
+sealed class PyrotationStack(BossModule module) : Components.StackWithIcon(module, (uint)IconID.FireStack, (uint)AID.Pyrotation1, 6f, 5d, 8, 8);
 
-    // Persistent puddles created when Pyrotation resolves; cleared by Divers' Dare.
+// Persistent puddles created when Pyrotation resolves; cleared by Divers' Dare.
 sealed class PyrotationPuddles(BossModule module) : Components.GenericAOEs(module)
 {
     private readonly List<AOEInstance> _puddles = [];
@@ -137,14 +129,14 @@ sealed class PyrotationPuddles(BossModule module) : Components.GenericAOEs(modul
         switch (spell.Action.ID)
         {
             case (uint)AID.Pyrotation1:
-            {
-                var t = _stackTarget;
-                if (t != null)
-                    _puddles.Add(new(Shape, t.Position, default, WorldState.CurrentTime, Colors.AOE, true));
+                {
+                    var t = _stackTarget;
+                    if (t != null)
+                        _puddles.Add(new(Shape, t.Position, default, WorldState.CurrentTime, Colors.AOE, true));
 
-                _stackTarget = null; // consume
-                break;
-            }
+                    _stackTarget = null; // consume
+                    break;
+                }
 
             case (uint)AID.DiversDare:
             case (uint)AID.DiversDare1:
@@ -154,30 +146,18 @@ sealed class PyrotationPuddles(BossModule module) : Components.GenericAOEs(modul
         }
     }
 }
-sealed class SteamBurst(BossModule module) : Components.SimpleAOEs(
-    module,
-    (uint)AID.SteamBurst,
-    new AOEShapeCircle(9f));
+sealed class SteamBurst(BossModule module) : Components.SimpleAOEs(module, (uint)AID.SteamBurst, 9f);
 // Xtreme Spectacular “no cast” hits (these appear as event casts).
 // Xtreme Spectacular edge - Proximity AOE so set it to 18 to mark the last safe spot in the 40-width rect.
-sealed class XtremeSpectacularEdge(BossModule module) : Components.SimpleAOEs(
-    module,
-    (uint)AID.XtremeSpectacular2,
-    new AOEShapeRect(50f, 18f));
-sealed class XtremeSpectacularRaidwide(BossModule module)
-    : Components.RaidwideCastsDelay(
-        module,
-        new uint[] { (uint)AID.XtremeSpectacular2 }, // visual cast
-        new uint[] { (uint)AID.XtremeSpectacular3, (uint)AID.XtremeSpectacular4 }, // instant hits
-        delay: 0.0,
-        hint: "Raidwide damage - Healer intensive! Use cooldowns!");
+sealed class XtremeSpectacularEdge(BossModule module) : Components.SimpleAOEs(module, (uint)AID.XtremeSpectacular2, new AOEShapeRect(50f, 18f));
+sealed class XtremeSpectacularRaidwide(BossModule module) : Components.RaidwideCastsDelay(module, [(uint)AID.XtremeSpectacular2], [(uint)AID.XtremeSpectacular3, (uint)AID.XtremeSpectacular4], 0d);
 
 // =========================
 // Module
 // =========================
 
 [ModuleInfo(
-    BossModuleInfo.Maturity.WIP,
+    BossModuleInfo.Maturity.Contributed,
     StatesType = typeof(M10NDaringDevilsStates),
     ConfigType = null,
     ObjectIDType = typeof(OID),

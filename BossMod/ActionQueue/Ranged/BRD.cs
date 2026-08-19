@@ -1,4 +1,6 @@
-﻿namespace BossMod.BRD;
+﻿using FFXIVClientStructs.FFXIV.Client.Game.Gauge;
+
+namespace BossMod.BRD;
 
 public enum AID : uint
 {
@@ -110,9 +112,9 @@ public enum SID : uint
     Peloton = ClassShared.SID.Peloton, // applied by Peloton to self/party
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.SagittariusArrow, true, castAnimLock: 3.70f); // animLock=3.700s?
         d.RegisterSpell(AID.HeavyShot, true);
@@ -153,18 +155,23 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         // hardcoded mechanics
         d.RegisterChargeIncreaseTrait(AID.Bloodletter, TraitID.EnhancedBloodletter);
         d.RegisterChargeIncreaseTrait(AID.RainOfDeath, TraitID.EnhancedBloodletter);
 
+        // prevents breaking queueing when manually doing first gcd buffs
+        // note: only works for pov player
+        d.Spell(AID.RadiantFinale)!.AllowExecute = (ws, _, _, _) =>
+        {
+            var anyCoda = SongFlags.MagesBalladCoda | SongFlags.ArmysPaeonCoda | SongFlags.WanderersMinuetCoda;
+            return (ws.Client.GetGauge<BardGauge>().SongFlags & anyCoda) != SongFlags.None;
+        };
+
         // smart targets
         d.Spell(AID.WardensPaean)!.SmartTarget = ActionDefinitions.SmartTargetEsunable;
 
-        d.Spell(AID.RepellingShot)!.ForbidExecute = ActionDefinitions.BackdashCheck(10);
+        d.Spell(AID.RepellingShot)!.AllowExecute = ActionPredicate.AllowBackdash(10);
     }
 }
-

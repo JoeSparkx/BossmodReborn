@@ -13,7 +13,7 @@ sealed class IPCProvider : IDisposable
 
     public IPCProvider(BossModuleManager bossmod, AIHints hints, RotationModuleManager autorotation, ActionManagerEx amex, MovementOverride movement, AIManager ai, ObstacleMapManager obstacles)
     {
-        Register("HasModuleByDataId", (uint dataId) => BossModuleRegistry.FindByOID(dataId) != null);
+        Register("HasModuleByDataId", static (uint dataId) => BossModuleRegistry.FindByOID(dataId) != null);
 
         // Timeline IPC endpoints for external plugin integration (e.g. RotationSolverReborn)
         Register("HasActiveModule", () => bossmod.ActiveModule?.StateMachine.ActiveState != null);
@@ -174,9 +174,16 @@ sealed class IPCProvider : IDisposable
             return predicted.Count == 0 ? 0 : (int)predicted[0].Type;
         });
 
-        // --- Custom OmniDuty Endpoints ---
         Register("Hints.MaxCastTime", () => hints.MaxCastTime);
-        Register("Hints.ForceCancelCast", () => hints.ForceCancelCast);
+
+        Register("Hints.ForceCancelCastMechanic", () => hints.ForceCancelCastMechanic);
+        Register("Hints.ForceCancelCastOther", () => hints.ForceCancelCastOther);
+
+        Register("Hints.ForceCancelCastMechanicAI", () => ai.Controller.ForceCancelCastMechanicAI);
+        Register("Hints.ForceCancelCastOtherAI", () => ai.Controller.ForceCancelCastOtherAI);
+
+        Register("Movement.IsMoving", () => hints.ForcedMovement != null);
+        Register("Movement.IsMoveRequested", movement.IsMoveRequested);
         Register("Hints.ForbiddenZonesCount", () => hints.ForbiddenZones.Count);
         Register("Hints.ForbiddenZonesNextActivation", () => hints.ForbiddenZones.Count == 0 ? float.MaxValue : (float)(hints.ForbiddenZones[0].activation - DateTime.Now).TotalSeconds);
         Register("Hints.ArenaCenter", () => new Vector2(hints.PathfindMapCenter.X, hints.PathfindMapCenter.Z));
@@ -186,7 +193,7 @@ sealed class IPCProvider : IDisposable
         Register("Hints.ShouldCleansePlayers", () => hints.ShouldCleanse.Raw);
         Register("Hints.InteractWithTargetOID", () => hints.InteractWithTarget?.InstanceID ?? 0ul);
         Register("Hints.RecommendedPositional", () => (int)hints.RecommendedPositional.Pos);
-        Register("AI.PauseMovement", (bool pause) => Service.Config.Get<AIConfig>().ForbidMovement = pause);
+        Register("AI.PauseMovement", static (bool pause) => Service.Config.Get<AIConfig>().ForbidMovement = pause);
         Register("AI.NaviTargetPos", () =>
         {
             var pos = ai.Controller.NaviTargetPos;
@@ -243,12 +250,12 @@ sealed class IPCProvider : IDisposable
         Register("Hints.IsPositionSafe", (Vector3 to) =>
         {
             var player = bossmod.WorldState.Party.Player();
-            return player != null && !ActionDefinitions.IsDashDangerous(player.Position, new WPos(to.X, to.Z), hints);
+            return player != null && ActionPredicate.IsDashSafe(player.Position, new WPos(to.X, to.Z), hints);
         });
 
         // Same as Hints.IsPositionSafe but with an explicit source position, useful when the dash origin differs from the player's current position.
         Register("Hints.IsDashSafe", (Vector3 from, Vector3 to) =>
-            !ActionDefinitions.IsDashDangerous(new WPos(from.X, from.Z), new WPos(to.X, to.Z), hints));
+            ActionPredicate.IsDashSafe(new WPos(from.X, from.Z), new WPos(to.X, to.Z), hints));
 
         // Returns true if dashing forward (or backward) by 'range' yalms from the player's current position/rotation is safe.
         // Mirrors DashFixedDistanceCheck: dest = playerPos + playerRotation * range (negated when backwards=true).
@@ -261,7 +268,7 @@ sealed class IPCProvider : IDisposable
             }
 
             var dest = player.Position + player.Rotation.ToDirection() * range * (backwards ? -1f : 1f);
-            return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
+            return ActionPredicate.IsDashSafe(player.Position, dest, hints);
         });
 
         // Returns true if backdashing 'range' yalms directly away from 'enemyPos' is safe.
@@ -276,7 +283,7 @@ sealed class IPCProvider : IDisposable
 
             var dir = (player.Position - new WPos(enemyPos.X, enemyPos.Z)).Normalized();
             var dest = player.Position + dir * range;
-            return !ActionDefinitions.IsDashDangerous(player.Position, dest, hints);
+            return ActionPredicate.IsDashSafe(player.Position, dest, hints);
         });
 
         Register("Configuration", (List<string> args, bool save) => Service.Config.ConsoleCommand(args.AsSpan(), save));
@@ -511,16 +518,56 @@ sealed class IPCProvider : IDisposable
             Preset? found = null;
             foreach (var p in autorotation.Database.Presets.AllPresets)
             {
-                if (p.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase)) { found = p; break; }
+                if (p.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    found = p;
+                    break;
+                }
             }
 
             ai.SetAIPreset(found);
         });
         Register("AI.GetPreset", () => ai.GetAIPreset);
 
-        Register("ObstacleMap.Generate", (Vector3 centerWorld, float radius, bool writeToFile) => obstacles.GenerateMap(centerWorld, radius, writeToFile));
+        Register("AI.SetPreset", (string name) =>
+        {
+            Preset? found = null;
+            foreach (var p in autorotation.Database.Presets.AllPresets)
+            {
+                if (p.Name.Trim().Equals(name.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    found = p;
+                    break;
+                }
+            }
+
+            ai.SetAIPreset(found);
+        });
+        Register("AI.GetPreset", () => ai.GetAIPreset);
+
+        Register("ObstacleMap.Generate", (Vector3 centerWorld, float radius, bool writeToFile) => obstacles.GenerateMap(centerWorld, radius, writeToFile, false));
         Register("ObstacleMap.GetGenerationStatus", () => obstacles.GenerationStatus);
         Register("ObstacleMap.HasTempMap", obstacles.HasTempMap);
+        Register("ObstacleMap.ClearTempMap", obstacles.ClearTempMap);
+        Register("ObstacleMap.EvaluateTempMapQuality", obstacles.EvaluateTempMapQuality);
+
+        // Cooldown Planner IPC endpoints for external plugin integration (RSR)
+        // returns a JSON-serialized array of PlanExecution.PlannedAction entries, resolved along the currently active plan branch
+        Register("Plan.GetUpcomingActions", (float lookAheadSeconds) =>
+        {
+            var planner = autorotation.Planner;
+            if (planner == null)
+                return "[]";
+
+            var actions = planner.GetUpcomingPlannedActions(bossmod.WorldState, autorotation.PlayerSlot, lookAheadSeconds);
+            return JsonSerializer.Serialize(actions);
+        });
+
+        // push notification: fired whenever the active plan changes
+        var plannedActionsChangedProvider = Service.PluginInterface.GetIpcProvider<object>("BossMod.Plan.ActionsChanged");
+        void OnPlannedActionsChanged() => plannedActionsChangedProvider.SendMessage();
+        autorotation.PlannedActionsChanged += OnPlannedActionsChanged;
+        _disposeActions += () => autorotation.PlannedActionsChanged -= OnPlannedActionsChanged;
     }
 
     public void Dispose() => _disposeActions?.Invoke();

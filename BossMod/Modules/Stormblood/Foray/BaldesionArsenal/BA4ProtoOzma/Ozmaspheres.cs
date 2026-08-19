@@ -10,7 +10,7 @@ sealed class Ozmaspheres(BossModule module) : Components.GenericAOEs(module)
         var count = orbs.Count;
         if (count == 0)
             return [];
-        List<Actor> orbz = new(count);
+        List<Actor> orbz = [with(count)];
         for (var i = 0; i < count; ++i)
         {
             var o = orbs[i];
@@ -75,6 +75,6 @@ sealed class Ozmaspheres(BossModule module) : Components.GenericAOEs(module)
         if (count == 0)
             return;
         for (var i = 0; i < count; ++i)
-            Arena.AddCircle(orbs[i].Position, 1f, pc.Role == Role.Tank ? Colors.Safe : default);
+            Arena.ZoneCircleOutline(orbs[i].Position, 1f, pc.Role == Role.Tank ? Colors.Safe : default);
     }
 }

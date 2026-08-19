@@ -25,7 +25,7 @@ sealed class ReplayDetailsWindow : UIWindow
     private readonly ConfigUI _config;
     private readonly PartyRolesConfig _roles = Service.Config.Get<PartyRolesConfig>();
     private bool _showConfig;
-    private bool _showDebug;
+    private bool _showDebug = true;
     private readonly EventList _events;
     private readonly ReplayAnalysis.AnalysisManager _analysis;
 
@@ -116,8 +116,15 @@ sealed class ReplayDetailsWindow : UIWindow
         ImGui.Checkbox("Override", ref _azimuthOverride);
         _hintsBuilder.Update(_hints, _povSlot, false);
         _rmm.Update(0, false, false);
+        var drawnGauge = false;
         if (_mgr.ActiveModule != null)
         {
+            if (_mgr.WorldState.Client.CountdownRemaining != null)
+            {
+                ImGui.SameLine();
+                ImGui.Text($"Countdown: {_mgr.WorldState.Client.CountdownRemaining.Value:f3}");
+            }
+
             var drawTimerPre = DateTime.Now;
             _mgr.ActiveModule.Draw(_azimuthOverride ? _azimuth.Degrees() : _mgr.WorldState.Client.CameraAzimuth, _povSlot, true, true);
             var drawTimerPost = DateTime.Now;
@@ -128,18 +135,20 @@ sealed class ReplayDetailsWindow : UIWindow
                 {
                     var movementDest = pc.Position + new WDir(_hints.ForcedMovement.Value.XZ());
                     _mgr.ActiveModule.Arena.AddLine(pc.Position, movementDest, Colors.FutureVulnerable);
-                    _mgr.ActiveModule.Arena.AddCircle(movementDest, 0.5f, Colors.FutureVulnerable);
+                    _mgr.ActiveModule.Arena.ZoneCircleOutline(movementDest, 0.5f, Colors.FutureVulnerable);
                 }
 
                 var movement = _mgr.ActiveModule.CalculateMovementHintsForRaidMember(_povSlot, pc);
                 foreach (var (from, to, col) in movement)
                 {
                     _mgr.ActiveModule.Arena.AddLine(from, to, (col & 0xffffff) | 0x80000000);
-                    _mgr.ActiveModule.Arena.AddCircle(to, 0.5f, (col & 0xffffff) | 0x80000000);
+                    _mgr.ActiveModule.Arena.ZoneCircleOutline(to, 0.5f, (col & 0xffffff) | 0x80000000);
                 }
             }
 
-            var compListSb = new System.Text.StringBuilder();
+            drawnGauge = DrawGauge(true);
+
+            var compListSb = new StringBuilder();
             var comps = _mgr.ActiveModule.Components;
             for (var ci = 0; ci < comps.Count; ++ci)
             {
@@ -160,6 +169,9 @@ sealed class ReplayDetailsWindow : UIWindow
             }
             ImGui.TextUnformatted($"Current state: {_mgr.ActiveModule.StateMachine.ActiveState?.ID:X}, Time since pull: {_mgr.ActiveModule.StateMachine.TimeSinceActivation:f3}, Draw time: {(drawTimerPost - drawTimerPre).TotalMilliseconds:f3}ms, Components: {compList}, Player offset: {povOffsetString}");
         }
+
+        if (!drawnGauge)
+            DrawGauge(false);
 
         if (ImGui.CollapsingHeader("Plan execution"))
         {
@@ -196,7 +208,11 @@ sealed class ReplayDetailsWindow : UIWindow
                     var encs = _player.Replay.Encounters;
                     for (var ei = 0; ei < encs.Count; ++ei)
                     {
-                        if (encs[ei].InstanceID == _mgr.ActiveModule.PrimaryActor.InstanceID) { enc = encs[ei]; break; }
+                        if (encs[ei].InstanceID == _mgr.ActiveModule.PrimaryActor.InstanceID)
+                        {
+                            enc = encs[ei];
+                            break;
+                        }
                     }
 
                     if (enc != null)
@@ -240,6 +256,22 @@ sealed class ReplayDetailsWindow : UIWindow
         {
             ResetPF();
         }
+    }
+
+    private bool DrawGauge(bool inline)
+    {
+        if (_showDebug && _povSlot == 0 && _mgr.WorldState.Party[0] is { } player)
+        {
+            var cursor = ImGui.GetCursorPos();
+            if (inline)
+                ImGui.SameLine();
+            GaugeVisualizer.Instance().Draw(player, _mgr.WorldState.Client);
+            if (inline)
+                ImGui.SetCursorPos(cursor);
+            return true;
+        }
+
+        return false;
     }
 
     private void DrawControlRow()
@@ -434,31 +466,34 @@ sealed class ReplayDetailsWindow : UIWindow
         if (ImGui.IsItemHovered() && numRealStatuses + actor.PendingStatuses.Count + actor.PendingDispels.Count + numIncoming > 0)
         {
             using var tooltip = ImRaii.Tooltip();
-            string fromString(string prefix, ulong instanceId) => instanceId == 0 ? "" : $", {prefix} {_player.WorldState.Actors.Find(instanceId)?.ToString() ?? instanceId.ToString("X")}";
-            var lenS = actor.Statuses.Length;
-            for (var i = 0; i < lenS; ++i)
+            if (tooltip.Alive)
             {
-                ref var s = ref actor.Statuses[i];
-                if (s.ID != 0)
+                string fromString(string prefix, ulong instanceId) => instanceId == 0 ? "" : $", {prefix} {_player.WorldState.Actors.Find(instanceId)?.ToString() ?? instanceId.ToString("X")}";
+                var lenS = actor.Statuses.Length;
+                for (var i = 0; i < lenS; ++i)
                 {
-                    ImGui.TextUnformatted($"[{i}] {Utils.StatusString(s.ID)} ({s.Extra}): {Utils.StatusTimeString(s.ExpireAt, _player.WorldState.CurrentTime)}{fromString("from", s.SourceID)}");
+                    ref var s = ref actor.Statuses[i];
+                    if (s.ID != default)
+                    {
+                        ImGui.TextUnformatted($"[{i}] {Utils.StatusString(s.ID)} ({s.Extra}): {Utils.StatusTimeString(s.ExpireAt, _player.WorldState.CurrentTime)}{fromString("from", s.SourceID)}");
+                    }
                 }
-            }
-            foreach (ref var s in actor.PendingStatuses.AsSpan())
-            {
-                ImGui.TextUnformatted($"[pending] {Utils.StatusString(s.StatusId)} ({s.ExtraLo}){fromString("from", s.Effect.SourceInstanceID)}");
-            }
-            foreach (ref var s in actor.PendingDispels.AsSpan())
-            {
-                ImGui.TextUnformatted($"[dispel] {Utils.StatusString(s.StatusId)}{fromString("by", s.Effect.SourceInstanceID)}");
-            }
-            var lenE = actor.IncomingEffects.Length;
-            for (var i = 0; i < lenE; ++i)
-            {
-                ref var inc = ref actor.IncomingEffects[i];
-                if (inc.GlobalSequence != 0)
+                foreach (ref var s in actor.PendingStatuses.AsSpan())
                 {
-                    ImGui.TextUnformatted($"[incoming {i}] {inc.GlobalSequence}/{inc.TargetIndex} {inc.Action}{fromString("from", inc.SourceInstanceID)}");
+                    ImGui.TextUnformatted($"[pending] {Utils.StatusString(s.StatusId)} ({s.ExtraLo}){fromString("from", s.Effect.SourceInstanceID)}");
+                }
+                foreach (ref var s in actor.PendingDispels.AsSpan())
+                {
+                    ImGui.TextUnformatted($"[dispel] {Utils.StatusString(s.StatusId)}{fromString("by", s.Effect.SourceInstanceID)}");
+                }
+                var lenE = actor.IncomingEffects.Length;
+                for (var i = 0; i < lenE; ++i)
+                {
+                    ref var inc = ref actor.IncomingEffects[i];
+                    if (inc.GlobalSequence != default)
+                    {
+                        ImGui.TextUnformatted($"[incoming {i}] {inc.GlobalSequence}/{inc.TargetIndex} {inc.Action}{fromString("from", inc.SourceInstanceID)}");
+                    }
                 }
             }
         }
@@ -684,12 +719,12 @@ sealed class ReplayDetailsWindow : UIWindow
 
         var player = new ReplayPlayer(_player.Replay);
         player.WorldState.Frame.Timestamp = _player.Replay.Ops[0].Timestamp; // so that we get correct name etc.
-        using (var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, false, new FileInfo(_player.Replay.Path).Directory!, "Before"))
+        using (var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, false, new FileInfo(_player.Replay.Path).Directory!, "Before", false))
         {
             player.AdvanceTo(_curTime, () => { });
         }
 
-        using (var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, "After"))
+        using (var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, "After", false))
         {
             player.AdvanceTo(DateTime.MaxValue, () => { });
         }
@@ -713,7 +748,7 @@ sealed class ReplayDetailsWindow : UIWindow
         var player = new ReplayPlayer(_player.Replay);
         player.WorldState.Frame.Timestamp = _player.Replay.Ops[0].Timestamp;
         player.AdvanceTo(enc.Time.Start, () => { });
-        using var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, $"Encounter_{Utils.StringToIdentifier(primaryActorName ?? "unknown")}");
+        using var relogger = new ReplayRecorder(player.WorldState, ReplayLogFormat.BinaryCompressed, true, new FileInfo(_player.Replay.Path).Directory!, $"Encounter_{Utils.StringToIdentifier(primaryActorName ?? "unknown")}", false);
         player.AdvanceTo(enc.Time.End, () => { });
     }
 }

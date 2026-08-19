@@ -52,7 +52,7 @@ sealed class PortentousCometeorBait(BossModule module) : Components.GenericBaitA
         base.DrawArenaForeground(pcSlot, pc);
         if (IsBaitTarget(pc) && meteor != null)
         {
-            Arena.AddCircle(meteor.Position, 2f, Colors.Vulnerable, 2f);
+            Arena.ZoneCircleOutline(meteor.Position, 2f, Colors.Vulnerable, 2f);
         }
     }
 
@@ -68,7 +68,7 @@ sealed class PortentousCometeorBait(BossModule module) : Components.GenericBaitA
 sealed class PortentousCometKnockback(BossModule module) : Components.GenericKnockback(module)
 {
     private readonly AOEShapeCircle circle = new(4f);
-    private readonly List<(Actor target, Angle dir)> targets = new(4);
+    private readonly List<(Actor target, Angle dir)> targets = [with(4)];
     private DateTime activation;
     private readonly LandingKnockback _kb = module.FindComponent<LandingKnockback>()!;
 

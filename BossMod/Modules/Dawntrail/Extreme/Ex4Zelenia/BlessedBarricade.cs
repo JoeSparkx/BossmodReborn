@@ -39,7 +39,7 @@ sealed class Towers2(BossModule module) : Components.GenericTowers(module)
 
 sealed class SpearpointPushAOE(BossModule module) : Components.GenericAOEs(module)
 {
-    public readonly List<AOEInstance> AOEs = new(2);
+    public readonly List<AOEInstance> AOEs = [with(2)];
     private readonly AOEShapeRect rect = new(33f, 37f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(AOEs);
@@ -114,7 +114,7 @@ sealed class SpearpointPushBait(BossModule module) : Components.GenericBaitAway(
                 var pos = b.Source.Position;
                 Arena.AddLine(pos, pc.Position);
                 var offsetDir = pos.X < 100f ? offset == -a90 ? 1f : -1f : offset == a90 ? 1f : -1f;
-                Arena.AddCircle(pos + offsetDir * dir, 1f, Colors.Safe);
+                Arena.ZoneCircleOutline(pos + offsetDir * dir, 1f, Colors.Safe);
             }
         }
     }

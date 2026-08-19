@@ -176,7 +176,7 @@ class PomPraise(BossModule module) : BossComponent(module)
         {
             var count = positions.Count;
             for (var i = 0; i < count; ++i)
-                Arena.AddCircle(positions[i], 4.9f, Colors.Vulnerable);
+                Arena.ZoneCircleOutline(positions[i], 4.9f, Colors.Vulnerable);
         }
     }
 }
@@ -216,8 +216,8 @@ public class D131ChieftainMoglin(WorldState ws, Actor primary) : BossModule(ws, 
             Arena.Actor(PrimaryActor);
         var smallmoogles = Enemies(SmallMoogles);
         var count = smallmoogles.Count;
-        List<Actor> balancedMoogles = new(count);
-        List<Actor> offBalanceMoogles = new(count);
+        List<Actor> balancedMoogles = [with(count)];
+        List<Actor> offBalanceMoogles = [with(count)];
         for (var i = 0; i < count; ++i)
         {
             var moogle = smallmoogles[i];

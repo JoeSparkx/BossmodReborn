@@ -95,12 +95,19 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
             """);
         ImGui.SameLine();
 
+        var selectedPresetList = _selectedPresetDefault ? PresetDB.DefaultPresets : PresetDB.UserPresets;
+        if (_selectedPresetIndex >= selectedPresetList.Count)
+        {
+            _selectedPresetIndex = -1;
+            _selectedPreset = null;
+        }
+
         ImGui.SetNextItemWidth(200);
-        using (var combo = ImRaii.Combo("Preset", _selectedPreset == null ? "" : _selectedPresetIndex < 0 ? "<new>" : (_selectedPresetDefault ? PresetDB.DefaultPresets : PresetDB.UserPresets)[_selectedPresetIndex].Name))
+        using (var combo = ImRaii.Combo("Preset", _selectedPreset == null ? "" : _selectedPresetIndex < 0 ? "<new>" : selectedPresetList[_selectedPresetIndex].Name))
         {
             if (combo)
             {
-                if (!_cfg.HideDefaultPreset)
+                if (!_cfg.HideDefaultPresets)
                     DrawPresetListElements(true);
                 DrawPresetListElements(false);
             }
@@ -135,7 +142,7 @@ public sealed class UIPresetDatabaseEditor(RotationDatabase rotationDB)
     private void DrawPresetListElements(bool defaultPresets)
     {
         var presets = defaultPresets ? PresetDB.DefaultPresets : PresetDB.UserPresets;
-        for (int i = 0; i < presets.Count; ++i)
+        for (var i = 0; i < presets.Count; ++i)
         {
             var preset = presets[i];
             if (ImGui.Selectable(preset.Name, _selectedPresetDefault == defaultPresets && _selectedPresetIndex == i))

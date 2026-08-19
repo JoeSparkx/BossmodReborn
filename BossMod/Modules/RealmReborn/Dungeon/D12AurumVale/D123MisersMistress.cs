@@ -44,7 +44,7 @@ sealed class BadBreath(BossModule module) : Components.SimpleAOEs(module, (uint)
 sealed class MorbolFruit(BossModule module) : BossComponent(module)
 {
     private BitMask burrs;
-    private List<Actor> _fruits = new(6);
+    private List<Actor> _fruits = [with(6)];
 
     public override void OnStatusGain(Actor actor, ref ActorStatus status)
     {
@@ -126,7 +126,7 @@ sealed class MorbolFruit(BossModule module) : BossComponent(module)
             var fruit = _fruits[i];
             if (fruit.IsTargetable)
             {
-                Arena.AddCircle(fruit.Position, 3f, Colors.Safe);
+                Arena.ZoneCircleOutline(fruit.Position, 3f, Colors.Safe);
             }
         }
     }

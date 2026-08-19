@@ -97,7 +97,7 @@ sealed class P3ApocalypseDarkWater(BossModule module) : Components.UniformStackS
 
     public void ShowOrder(int order)
     {
-        for (int i = 0; i < States.Length; ++i)
+        for (var i = 0; i < States.Length; ++i)
             if (States[i].Order == order && Raid[i] is var player && player != null)
                 AddStack(player, States[i].Expiration);
     }
@@ -157,7 +157,7 @@ sealed class P3ApocalypseDarkWater(BossModule module) : Components.UniformStackS
 
         var swap = _config.P3ApocalypseUptime ? FindUptimeSwap(slotPerAssignment) : FindStandardSwap(slotPerAssignment);
         //var debugSwap = swap.Raw;
-        for (int role = 0; role < slotPerAssignment.Length; ++role)
+        for (var role = 0; role < slotPerAssignment.Length; ++role)
         {
             if (!swap[role])
                 continue;
@@ -285,15 +285,15 @@ sealed class P3ApocalypseDarkEruption(BossModule module) : Components.SpreadFrom
         var safeSpot = SafeOffset(pcSlot, out var refSafeSpot);
         if (safeSpot != default)
         {
-            Arena.AddCircle(Arena.Center + safeSpot, 1f, Colors.Safe);
+            Arena.ZoneCircleOutline(Arena.Center + safeSpot, 1f, Colors.Safe);
             if (refSafeSpot != safeSpot)
-                Arena.AddCircle(Arena.Center + refSafeSpot, 1f);
+                Arena.ZoneCircleOutline(Arena.Center + refSafeSpot, 1f);
         }
         else if (refSafeSpot != default)
         {
             // we don't have assignments, at least draw two reference ones
-            Arena.AddCircle(Arena.Center + refSafeSpot, 1f);
-            Arena.AddCircle(Arena.Center - refSafeSpot, 1f);
+            Arena.ZoneCircleOutline(Arena.Center + refSafeSpot, 1f);
+            Arena.ZoneCircleOutline(Arena.Center - refSafeSpot, 1f);
         }
     }
 

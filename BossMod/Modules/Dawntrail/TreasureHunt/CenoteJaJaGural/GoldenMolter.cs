@@ -82,7 +82,7 @@ sealed class Crypsis(BossModule module) : BossComponent(module)
     public override void DrawArenaForeground(int pcSlot, Actor pc)
     {
         if (IsConcealed)
-            Arena.AddCircle(Module.PrimaryActor.Position, RevealDistance, Colors.Safe);
+            Arena.ZoneCircleOutline(Module.PrimaryActor.Position, RevealDistance, Colors.Safe);
     }
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
@@ -111,7 +111,7 @@ sealed class Vasoconstrictor(BossModule module) : Components.SimpleAOEGroups(mod
 
 sealed class VasoconstrictorPool(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly List<AOEInstance> _aoes = [with(3)];
     private readonly AOEShapeCircle circle = new(17f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);

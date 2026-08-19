@@ -20,11 +20,11 @@ public sealed class PresetDatabase
         {
             var countD = DefaultPresets.Count;
             var countU = UserPresets.Count;
-            List<Preset> presets = new(countD + countU);
+            List<Preset> presets = [with(countD + countU)];
             for (var i = 0; i < countD; ++i)
             {
                 var def = DefaultPresets[i];
-                if (def.HiddenByDefault == _cfg.HideDefaultPreset)
+                if (def.HiddenByDefault == _cfg.HideDefaultPresets || def.Name == "VBM Multibox" || def.Name == "Movement Only")
                 {
                     presets.Add(def);
                 }
@@ -37,10 +37,12 @@ public sealed class PresetDatabase
         }
     }
 
-    public PresetDatabase(string rootPath, FileInfo defaultPresets)
+    public PresetDatabase(string rootPath, params FileInfo[] defaultPresets)
     {
         _dbPath = new(rootPath + ".db.json");
-        DefaultPresets = LoadPresetsFromFile(defaultPresets);
+        DefaultPresets = [];
+        foreach (var file in defaultPresets)
+            DefaultPresets.AddRange(LoadPresetsFromFile(file));
         UserPresets = LoadPresetsFromFile(_dbPath);
     }
 
@@ -95,7 +97,7 @@ public sealed class PresetDatabase
     {
         var visible = AllPresets;
         var count = visible.Count;
-        List<Preset> presets = new(count);
+        List<Preset> presets = [with(count)];
         for (var i = 0; i < count; ++i)
         {
             var vis = visible[i];

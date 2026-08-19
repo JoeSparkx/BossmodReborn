@@ -2,7 +2,7 @@ namespace BossMod.Shadowbringers.Foray.TheDalriada.DAL4DiabloArmament;
 
 sealed class Aetheroplasm(BossModule module) : BossComponent(module)
 {
-    private readonly List<Actor> orbs = new(8);
+    private readonly List<Actor> orbs = [with(8)];
 
     public override void OnActorCreated(Actor actor)
     {
@@ -49,7 +49,7 @@ sealed class Aetheroplasm(BossModule module) : BossComponent(module)
         var count = orbs.Count;
         for (var i = 0; i < count; ++i)
         {
-            Arena.AddCircle(orbs[i].Position, 1.5f, Colors.Safe);
+            Arena.ZoneCircleOutline(orbs[i].Position, 1.5f, Colors.Safe);
         }
     }
 }

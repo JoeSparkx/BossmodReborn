@@ -6,6 +6,7 @@ using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Client.Game.Event;
 using FFXIVClientStructs.FFXIV.Client.Game.Fate;
+using FFXIVClientStructs.FFXIV.Client.Game.UI;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -35,6 +36,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
     private IPCProvider _ipc = null!;
     private DTRProvider _dtr = null!;
     private MultiboxManager _mbox = null!;
+    private PartyRolesManager _partyRoles = null!;
+    private CancelCastTweak _cancelCastTweak = null!;
     private TimeSpan _prevUpdateTime;
     private DateTime _throttleJump;
     private DateTime _throttleInteract;
@@ -86,7 +89,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
             Service.Config.Initialize();
             Service.Config.LoadFromFile(_dalamud.ConfigFile);
 
-            _rotationDB = new(new(_dalamud.ConfigDirectory.FullName + "/autorot"), new(_dalamud.AssemblyLocation.DirectoryName! + "/DefaultRotationPresets.json"));
+            _rotationDB = new(new(_dalamud.ConfigDirectory.FullName + "/autorot"),
+                new(_dalamud.AssemblyLocation.DirectoryName! + "/RebornPresets.json"),
+                new(_dalamud.AssemblyLocation.DirectoryName! + "/DefaultRotationPresets.json"));
         }, cancellationToken);
 
         await Service.Framework.RunOnFrameworkThread(InitOnFrameworkThread);
@@ -109,6 +114,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _rsr = new(_dalamud);
         _ws = new(qpf, _gameVersion);
         _hints = new();
+        _cancelCastTweak = new(_ws, _hints);
         _bossmod = new(_ws);
         _zonemod = new(_ws);
         _hintsBuilder = new(_ws, _bossmod, _zonemod, _rsr);
@@ -121,7 +127,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _ipc = new(_bossmod, _hints, _rotation, _amex, _movementOverride, _ai, _hintsBuilder.Obstacles);
         _dtr = new(_rotation, _ai);
         _mbox = new(_rotation, _ws);
+        _partyRoles = new(_ws);
         _wndBossmod = new(_bossmod, _zonemod);
+        Service.BossModWindow = _wndBossmod;
         _wndBossmodHints = new(_bossmod, _zonemod);
         _wndZone = new(_zonemod);
         var config = Service.Config.Get<ReplayManagementConfig>();
@@ -145,7 +153,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
             _dalamud.UiBuilder.Draw -= DrawUI;
             Service.Condition.ConditionChange -= OnConditionChanged;
         });
-
+        ReplayVisualization.GaugeVisualizer.Dispose();
         _wndDebug.Dispose();
         _wndRotation.Dispose();
         _wndReplay.Dispose();
@@ -153,6 +161,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _wndBossmodHints.Dispose();
         _wndBossmod.Dispose();
         _configUI.Dispose();
+        _partyRoles.Dispose();
         _mbox.Dispose();
         _dtr.Dispose();
         _ipc.Dispose();
@@ -164,7 +173,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _hintsBuilder.Dispose();
         _zonemod.Dispose();
         _bossmod.Dispose();
-        ActionDefinitions.Instance.Dispose();
+        _rsr.Dispose();
         CommandManager.RemoveHandler("/bmr");
         GarbageCollection();
     }
@@ -210,6 +219,9 @@ public sealed class Plugin : IAsyncDalamudPlugin
                 break;
             case "TOGGLEANTICHEAT":
                 ToggleAnticheat();
+                break;
+            case "RADAR":
+                ToggleRadar(split);
                 break;
         }
     }
@@ -290,6 +302,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _dtr.Update();
         Camera.Instance?.Update();
         _wsSync.Update(_prevUpdateTime);
+        _partyRoles.Update();
         _bossmod.Update();
         _zonemod.ActiveModule?.Update();
         _hintsBuilder.Update(_hints, PartyState.PlayerSlot, moveImminent);
@@ -335,29 +348,46 @@ public sealed class Plugin : IAsyncDalamudPlugin
             var res = FFXIVClientStructs.FFXIV.Client.Game.StatusManager.ExecuteStatusOff(s.statusId, s.sourceId != default ? (uint)s.sourceId : 0xE0000000);
             Service.Log($"[ExecHints] Canceling status {s.statusId} from {s.sourceId:X} -> {res}");
         }
-        if (_hints.WantJump && _ws.CurrentTime > _throttleJump)
+
+        if (AI.AIManager.Instance?.Beh != null || Autorotation.MiscAI.NormalMovement.Instance != null) // only jump or interact if AI is being used
         {
-            //Service.Log($"[ExecHints] Jumping...");
-            FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 2);
-            _throttleJump = _ws.FutureTime(0.1d);
+            if (_hints.WantJump && _ws.CurrentTime > _throttleJump)
+            {
+                //Service.Log($"[ExecHints] Jumping...");
+                FFXIVClientStructs.FFXIV.Client.Game.ActionManager.Instance()->UseAction(FFXIVClientStructs.FFXIV.Client.Game.ActionType.GeneralAction, 2);
+                _throttleJump = _ws.FutureTime(0.1d);
+            }
+            if (CheckInteractRange(_ws.Party.Player(), _hints.InteractWithTarget))
+            {
+                // many eventobj interactions "immediately" start some cast animation (delayed by server roundtrip), and if we keep trying to move toward the target after sending the interact request, it will be canceled and force us to start over
+                _movementOverride.DesiredDirection = default;
+
+                if (_amex.EffectiveAnimationLock == 0 && _ws.CurrentTime >= _throttleInteract)
+                {
+                    FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->InteractWithObject(GetActorObject(_hints.InteractWithTarget), false);
+                    _throttleInteract = _ws.FutureTime(1.1d);
+                }
+            }
+        }
+
+        if (_ws.Party.Player()?.CastInfo != null)
+        {
+            if (_cancelCastTweak.ShouldCancel(_ws.CurrentTime, _hints.ForceCancelCastMechanic))
+            {
+                Service.Log($"[CancelCast] Canceling cast due to ShouldCancel, {_hints.ForceCancelCastMechanic}");
+                UIState.Instance()->Hotbar.CancelCast();
+            }
+
+            //if (_cancelCastTweak.ShouldCancel(_ws.CurrentTime, _hints.ForceCancelCastOther))
+            //{
+            //    UIState.Instance()->Hotbar.CancelCast();
+            //}
         }
 
         if (_hints.ShouldLeaveDuty && _ws.CurrentTime >= _throttleLeaveDuty)
         {
             EventFramework.LeaveCurrentContent(false);
             _throttleLeaveDuty = _ws.FutureTime(1d);
-        }
-
-        if ((AI.AIManager.Instance?.Beh != null || Autorotation.MiscAI.NormalMovement.Instance != null) && CheckInteractRange(_ws.Party.Player(), _hints.InteractWithTarget))
-        {
-            // many eventobj interactions "immediately" start some cast animation (delayed by server roundtrip), and if we keep trying to move toward the target after sending the interact request, it will be canceled and force us to start over
-            _movementOverride.DesiredDirection = default;
-
-            if (_amex.EffectiveAnimationLock == 0 && _ws.CurrentTime >= _throttleInteract)
-            {
-                FFXIVClientStructs.FFXIV.Client.Game.Control.TargetSystem.Instance()->InteractWithObject(GetActorObject(_hints.InteractWithTarget), false);
-                _throttleInteract = _ws.FutureTime(1.1d);
-            }
         }
 
         HandleFateSync();
@@ -523,5 +553,32 @@ public sealed class Plugin : IAsyncDalamudPlugin
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
+    }
+
+    private static bool ToggleRadar(string[] messageData)
+    {
+        var config = Service.Config.Get<BossModuleConfig>();
+
+        if (messageData.Length == 1)
+            config.Enable = !config.Enable;
+        else
+        {
+            switch (messageData[1].ToUpperInvariant())
+            {
+                case "ON":
+                    config.Enable = true;
+                    break;
+                case "OFF":
+                    config.Enable = false;
+                    break;
+                default:
+                    Service.ChatGui.Print($"[BMR] Unknown radar command: {messageData[1]}");
+                    return false;
+            }
+        }
+
+        config.Modified.Fire();
+        Service.Log($"Radar is now {(config.Enable ? "enabled" : "disabled")}");
+        return true;
     }
 }

@@ -5,13 +5,16 @@ public static class BossModuleInfo
 {
     public enum Maturity
     {
-        [PropertyDisplay("Work in progress; might be incomplete or have severe bugs")]
+        [PropertyDisplay("Dummy modules, dev work only.")]
+        Dummy,
+
+        [PropertyDisplay("Work in progress; might be incomplete or have severe bugs.")]
         WIP,
 
-        [PropertyDisplay("Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV")]
+        [PropertyDisplay("Third-party contributed module that wasn't verified by the plugin author; might be working fine, might have any sorts of inconsistencies with other modules - YMMV.")]
         Contributed,
 
-        [PropertyDisplay("First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified and effectively taken over by the plugin author")]
+        [PropertyDisplay("First-party module created by the plugin author, or a third-party contributed module that was thoroughly verified.")]
         Verified,
 
         [PropertyDisplay("Module that has been verified to work well with AI enabled.")]
@@ -53,6 +56,7 @@ public static class BossModuleInfo
         PVP,
         MaskedCarnivale,
         GoldSaucer,
+        HallOfTheNovice,
         Quantum,
         Advanced,
 
@@ -69,6 +73,7 @@ public static class BossModuleInfo
         CastrumLacusLitore, // group id is ContentFinderCondition row
         TheDalriada, // group id is ContentFinderCondition row
         TheForkedTowerBlood, // group id is ContentFinderCondition row
+        TheForkedTowerMagic, // group id is ContentFinderCondition row
         ForayFATE, // group id is Fate row
         Quest, // group id is Quest row
         Fate, // group id is Fate row

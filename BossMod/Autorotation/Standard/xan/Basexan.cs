@@ -7,9 +7,13 @@ namespace BossMod.Autorotation.xan;
 [Renderer(typeof(TargetingRenderer))]
 public enum Targeting
 {
+    [Option("Use player's target")]
     Manual,
+    [Option("Automatically pick best target for all actions")]
     Auto,
+    [Option("Automatically pick best target; player target must be hit")]
     AutoPrimary,
+    [Option("Automatically pick best target; if player has a target, hit it")]
     AutoTryPri
 }
 
@@ -113,9 +117,14 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
 
     public bool CanFitGCD(float duration, int extraGCDs = 0) => GCD + GCDLength * extraGCDs < duration;
 
+    protected bool HaveRaidBuffs => HaveRaidBuffsUntil(GCD);
+    protected bool HaveRaidBuffsUntil(float deadline) => RaidBuffsLeft > deadline || RaidBuffsIn > 9000;
+
     // frame alignment/cooldown reduction produces inconsistent results in combat, i.e. on MCH, 2.5 GCD drill will quasi-randomly not be considered ready
-    // i don't know if this is because our CD reduction code is buggy or if it's an inherent limitation
+    // according to the balance discord, there's a random chance that actions you use will have an animation lock longer or shorter than intended by 1 tick (+/- 40ms) and this problem is apparently more common for players that use lag reduction tools
+    // i'm just going to assume this bug can also happen to cooldowns, it's not easy to test and there's unlikely to be much data from vanilla players about it, since they all use native action queueing
     protected bool GCDReady(AID aid) => ReadyIn(aid) < GCD + 0.05f;
+    protected bool DutyActionGCDReady<ID>(ID aid) where ID : Enum => DutyActionReadyIn(aid) < GCD + 0.05f;
 
     protected bool OnCooldown(AID aid) => MaxChargesIn(aid) > 0;
 
@@ -145,6 +154,8 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
     public const float DefaultGCDPriority = ActionQueue.Priority.High + 2;
 
     protected AID ComboLastMove => (AID)(object)World.Client.ComboState.Action;
+
+    protected float GetApplicationDelay(AID action) => ApplicationDelay.Get((uint)(object)action);
 
     // override if some action requires specific runtime checks that aren't covered by the existing framework code
     protected virtual bool CanUse(AID action) => true;
@@ -201,7 +212,27 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         PushAction(aid, target, ActionQueue.Priority.Low + priority, delay);
     }
 
-    protected bool PushAction(AID aid, Actor? target, float priority, float delay)
+    protected bool UsePlanned<T>(in Track<T> strategyTrack, AID action, Enemy? defaultTarget, float delay = 0, float additionalPriority = 0, bool forced = false, Func<Enemy?, bool>? predicate = null) where T : struct
+    {
+        var realTarget = ResolveEnemy(strategyTrack) ?? defaultTarget;
+
+        if (predicate?.Invoke(realTarget) == false)
+            return false;
+
+        return PushAction(action, realTarget?.Actor, strategyTrack.Priority() + additionalPriority, delay, forced);
+    }
+
+    protected bool UsePlanned<T>(in Track<T> strategyTrack, AID action, Actor? defaultTarget, float delay = 0, float additionalPriority = 0, bool forced = false, Func<Actor?, bool>? predicate = null) where T : struct
+    {
+        var realTarget = ResolveTarget(strategyTrack) ?? defaultTarget;
+
+        if (predicate?.Invoke(realTarget) == false)
+            return false;
+
+        return PushAction(action, realTarget, strategyTrack.Priority() + additionalPriority, delay, forced);
+    }
+
+    protected bool PushAction(AID aid, Actor? target, float priority, float delay, bool forced = false)
     {
         if ((uint)(object)aid == 0)
             return false;
@@ -229,7 +260,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
                 targetPos = target.PosRot.XYZ();
         }
 
-        Hints.ActionsToExecute.Push(ActionID.MakeSpell(aid), target, priority, delay: delay, targetPos: targetPos, castTime: GetSlidecastTime(aid));
+        Hints.ActionsToExecute.Push(ActionID.MakeSpell(aid), target, priority, delay: delay, targetPos: targetPos, castTime: GetSlidecastTime(aid), forced: forced);
         return true;
     }
 
@@ -412,8 +443,8 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
             _ => 0
         };
 
-    protected PositionCheck IsSplashTarget => (primary, other) => TargetInAOECircle(other, primary.Position, 5);
-    protected PositionCheck Is25yRectTarget => (primary, other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), 25, 2);
+    protected PositionCheck IsSplashTarget => (primary, other) => TargetInAOECircle(other, primary.Position, 5f);
+    protected PositionCheck Is25yRectTarget => (primary, other) => TargetInAOERect(other, Player.Position, Player.DirectionTo(primary), 25f, 2f);
 
     /// <summary>
     /// Get <em>effective</em> cast time for the provided action.<br/>
@@ -575,7 +606,7 @@ public abstract class Basexan<AID, TraitID, TValues>(RotationModuleManager manag
         return (Bossmods.RaidCooldowns.DamageBuffLeft(Player, primaryTarget), buffsIn.Value);
     }
 
-    private bool HavePartyBuff(Actor player) => player.Class switch
+    static bool HavePartyBuff(Actor player) => player.Class switch
     {
         Class.MNK => player.Level >= 70, // brotherhood
         Class.DRG => player.Level >= 52, // battle litany

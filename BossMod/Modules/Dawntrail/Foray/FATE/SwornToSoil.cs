@@ -30,7 +30,7 @@ public enum SID : uint
 
 sealed class Rupture(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(2);
+    private readonly List<AOEInstance> _aoes = [with(2)];
     private static readonly AOEShapeCircle circle = new(16f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
@@ -83,4 +83,4 @@ sealed class MadMudarchStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1969)]
-public sealed class MadMudarch(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+public sealed class MadMudarch(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

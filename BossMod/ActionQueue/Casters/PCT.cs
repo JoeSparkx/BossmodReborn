@@ -108,10 +108,10 @@ public enum SID : uint
     Swiftcast = ClassShared.SID.Swiftcast, // applied by Swiftcast to self
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
     private readonly PCTConfig _config = Service.Config.Get<PCTConfig>();
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.ChromaticFantasy);
         d.RegisterSpell(AID.FireInRed);
@@ -162,18 +162,15 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
         d.RegisterChargeIncreaseTrait(AID.StrikingMuse, TraitID.EnhancedPictomancyII);
         foreach (var creature in new AID[] { AID.LivingMuse, AID.PomMuse, AID.WingedMuse, AID.ClawedMuse, AID.FangedMuse })
             d.RegisterChargeIncreaseTrait(creature, TraitID.EnhancedPictomancyIV);
 
-        d.Spell(AID.Smudge)!.TransformAngle = (ws, _, _, _) => _config.AlignDashToCamera
+        d.Spell(AID.Smudge)!.TransformAngle = (ws, _, _) => _config.AlignDashToCamera
             ? ws.Client.CameraAzimuth + 180.Degrees()
             : null;
-        d.Spell(AID.Smudge)!.ForbidExecute = ActionDefinitions.DashFixedDistanceCheck(15);
+        d.Spell(AID.Smudge)!.AllowExecute = ActionPredicate.AllowDashFixed(15);
     }
 }
-

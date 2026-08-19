@@ -137,7 +137,7 @@ public sealed class UIPresetEditor
         {
             if (list)
             {
-                for (int i = 0; i < Preset.Modules.Count; ++i)
+                for (var i = 0; i < Preset.Modules.Count; ++i)
                 {
                     var m = Preset.Modules[i];
                     if (i != 0 && Preset.Modules[i - 1].Definition.Order != m.Definition.Order)
@@ -212,7 +212,10 @@ public sealed class UIPresetEditor
         if (ImGui.IsItemHovered())
         {
             using var tooltip = ImRaii.Tooltip();
-            UIRotationModule.DescribeModule(type, definition);
+            if (tooltip.Alive)
+            {
+                UIRotationModule.DescribeModule(type, definition);
+            }
         }
         return res;
     }
@@ -248,6 +251,13 @@ public sealed class UIPresetEditor
             var active = ms.SerializedSettings.FindIndex(s => s.Track == track && s.Mod == default);
             if (active < 0 && cfg.UIPriority < 0 && !_showHiddenTracks)
                 break;
+            if (cfg.VisibleWhenTrack >= 0)
+            {
+                var dep = ms.SerializedSettings.FindIndex(s => s.Track == cfg.VisibleWhenTrack && s.Mod == default);
+                var depOption = dep >= 0 && ms.SerializedSettings[dep].Value is StrategyValueTrack depVal ? depVal.Option : 0;
+                if (depOption != cfg.VisibleWhenOption)
+                    continue;
+            }
 
             using (ImRaii.PushId($"{cfg.InternalName}_default"))
             {

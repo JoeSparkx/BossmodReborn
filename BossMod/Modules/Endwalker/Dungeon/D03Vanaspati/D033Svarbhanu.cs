@@ -26,18 +26,19 @@ public enum AID : uint
     GnashingOfTeeth = 25171 // Boss->player, 5.0s cast, single-target
 }
 
-class ArenaChange(BossModule module) : Components.GenericAOEs(module)
+sealed class ArenaChange(BossModule module) : Components.GenericAOEs(module)
 {
-    private static readonly AOEShapeCustom square = new([new Square(D033Svarbhanu.ArenaCenter, 25f)], [new Square(D033Svarbhanu.ArenaCenter, 20f)]);
     private AOEInstance[] _aoe = [];
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoe;
 
     public override void OnCastFinished(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.FlamesOfDecay && Arena.Bounds.Radius > 20f)
+        if (spell.Action.ID == (uint)AID.FlamesOfDecay && Arena.Bounds.Radius > 21f)
         {
-            _aoe = [new(square, Arena.Center, default, Module.CastFinishAt(spell, 8.9d))];
+            var center = Arena.Center;
+            var shape = new AOEShapeCustom(center, [new Square(center, 24.5f)], [new Square(center, 20f)]);
+            _aoe = [new(shape, center, default, Module.CastFinishAt(spell, 8.9d), shapeDistance: shape.Distance(center, default))];
         }
     }
 
@@ -55,7 +56,7 @@ sealed class ChaoticUndercurrent(BossModule module) : Components.GenericAOEs(mod
 {
     public enum Pattern { None, BBRR, RRBB, BRRB, RBBR }
     public Pattern currentPattern;
-    public readonly List<AOEInstance> AOEs = new(2);
+    public readonly List<AOEInstance> AOEs = [with(2)];
     private static readonly AOEShapeRect rect = new(40f, 5f);
     private CosmicKissKnockback? _kb;
 
@@ -147,7 +148,7 @@ sealed class CosmicKissCircle(BossModule module) : Components.SimpleAOEs(module,
 
 sealed class CosmicKissRect(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(9);
+    private readonly List<AOEInstance> _aoes = [with(9)];
     private static readonly AOEShapeRect rect = new(50f, 5f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor)
@@ -268,7 +269,4 @@ sealed class D033SvarbhanuStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "The Combat Reborn Team (Malediktus, LTS)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 789u, NameID = 10719u)]
-public sealed class D033Svarbhanu(WorldState ws, Actor primary) : BossModule(ws, primary, ArenaCenter, new ArenaBoundsSquare(24.5f))
-{
-    public static readonly WPos ArenaCenter = new(300f, -157f);
-}
+public sealed class D033Svarbhanu(WorldState ws, Actor primary) : BossModule(ws, primary, new(300f, -157f), new ArenaBoundsSquare(24.5f));

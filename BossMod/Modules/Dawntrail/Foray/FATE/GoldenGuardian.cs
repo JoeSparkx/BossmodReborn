@@ -48,7 +48,7 @@ sealed class Epigraph(BossModule module) : Components.SimpleAOEs(module, (uint)A
 
 sealed class ErosiveEye(BossModule module) : Components.GenericGaze(module)
 {
-    private readonly List<Eye> _eyes = new(4);
+    private readonly List<Eye> _eyes = [with(4)];
 
     public override ReadOnlySpan<Eye> ActiveEyes(int slot, Actor actor) => _eyes.Count != 0 ? CollectionsMarshal.AsSpan(_eyes)[..1] : [];
 
@@ -141,4 +141,4 @@ sealed class GoldenGuardianStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1963)]
-public sealed class GoldenGuardian(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+public sealed class GoldenGuardian(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

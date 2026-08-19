@@ -30,7 +30,7 @@ sealed class FeatherRain(BossModule module) : Components.SimpleAOEs(module, (uin
 
 sealed class Airburst(BossModule module) : Components.GenericAOEs(module)
 {
-    private readonly List<AOEInstance> _aoes = new(8);
+    private readonly List<AOEInstance> _aoes = [with(8)];
     private static readonly AOEShapeCircle circle = new(11f);
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => CollectionsMarshal.AsSpan(_aoes);
@@ -76,4 +76,4 @@ sealed class KingOfTheCrescentStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.ForayFATE, GroupID = 1018, NameID = 1964)]
-public sealed class KingOfTheCrescent(WorldState ws, Actor primary) : SimpleBossModule(ws, primary);
+public sealed class KingOfTheCrescent(WorldState ws, Actor primary) : OpenWorldFate(ws, primary);

@@ -58,7 +58,7 @@ sealed class SectorBisector(BossModule module) : Components.GenericAOEs(module)
     // at higher latencies the time stamps merge together and tethers start to appear in random order in the logs...
     private static readonly AOEShapeCone cone = new(45f, 90f.Degrees());
     private AOEInstance[] _aoe = [];
-    private readonly List<(Actor source, Actor target)> tethers = new(8);
+    private readonly List<(Actor source, Actor target)> tethers = [with(8)];
     private int cloneCount;
     private bool direction; // false = left, true = right
     private bool active;
@@ -163,4 +163,4 @@ sealed class D102SoldierS0States : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027u, NameID = 13757u)]
-public sealed class D102SoldierS0(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, -182f), new ArenaBoundsSquare(15.5f));
+public sealed class D102SoldierS0(WorldState ws, Actor primary) : BossModule(ws, primary, new(0f, -182f), new ArenaBoundsSquare(15.5f));

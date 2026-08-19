@@ -52,9 +52,9 @@ sealed class DeterrentPulse(BossModule module) : Components.LineStack(module, (u
 sealed class EnforcementRay(BossModule module) : Components.GenericAOEs(module)
 {
     private static readonly AOEShapeCross cross = new(36f, 4.5f);
-    private readonly List<AOEInstance> _aoes = new(3);
+    private readonly List<AOEInstance> _aoes = [with(3)];
     private bool teleported;
-    private readonly List<WPos> startingpositions = new(2);
+    private readonly List<WPos> startingpositions = [with(2)];
     private WPos center;
 
     public override ReadOnlySpan<AOEInstance> ActiveAOEs(int slot, Actor actor) => _aoes.Count != 0 ? CollectionsMarshal.AsSpan(_aoes)[..1] : [];
@@ -193,4 +193,4 @@ sealed class D103ValiaPiraStates : StateMachineBuilder
 }
 
 [ModuleInfo(BossModuleInfo.Maturity.AISupport, Contributors = "The Combat Reborn Team (Malediktus)", GroupType = BossModuleInfo.GroupType.CFC, GroupID = 1027, NameID = 13749)]
-public sealed class D103ValiaPira(WorldState ws, Actor primary) : BossModule(ws, primary, new(default, -331f), new ArenaBoundsSquare(17.5f));
+public sealed class D103ValiaPira(WorldState ws, Actor primary) : BossModule(ws, primary, new(0f, -331f), new ArenaBoundsSquare(17.5f));

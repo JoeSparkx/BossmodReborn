@@ -46,7 +46,7 @@ public sealed class MeleeAI(RotationModuleManager manager, Actor player) : AIBas
                 Hints.ActionsToExecute.Push(BozjaActionID.GetNormal(BozjaHolsterID.LostAssassination), primaryTarget, ActionQueue.Priority.Low);
         }
 
-        if (Player.Class == Class.RPR && Hints.PotentialTargets.Any(t => t.Actor.TargetID == Player.InstanceID && t.Actor.CastInfo == null && t.Actor.DistanceToHitbox(Player) < 6))
+        if (Bossmods.ActiveModule == null && Player.Class == Class.RPR && Hints.PotentialTargets.Any(t => t.Actor.TargetID == Player.InstanceID && t.Actor.CastInfo == null && t.Actor.DistanceToHitbox(Player) < 6))
             Hints.ActionsToExecute.Push(ActionID.MakeSpell(BossMod.RPR.AID.ArcaneCrest), Player, ActionQueue.Priority.VeryLow);
 
         ExecLB(strategy, primaryTarget);
@@ -71,8 +71,8 @@ public sealed class MeleeAI(RotationModuleManager manager, Actor player) : AIBas
                     Class.LNC or Class.DRG => ClassDRGUtility.IDLimitBreak3,
                     Class.ROG or Class.NIN => ClassNINUtility.IDLimitBreak3,
                     Class.SAM => ClassSAMUtility.IDLimitBreak3,
-                    Class.RPR => ActionID.MakeSpell(BossMod.RPR.AID.TheEnd),
-                    Class.VPR => ActionID.MakeSpell(BossMod.VPR.AID.WorldSwallower),
+                    Class.RPR => ClassRPRUtility.IDLimitBreak3,
+                    Class.VPR => ClassVPRUtility.IDLimitBreak3,
                     _ => default
                 };
                 if (lb3 != default)

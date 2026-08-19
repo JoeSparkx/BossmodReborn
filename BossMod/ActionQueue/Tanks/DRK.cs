@@ -81,7 +81,7 @@ public enum SID : uint
     BloodWeapon = 742, // applied by BloodWeapon to self
     Grit = 743, // applied by Grit to self
     SaltedEarth = 749, // applied by Salted Earth
-    TheBlackestNight = 1308, // applied by The Blackest Night to target
+    TheBlackestNight = 1178, // applied by The Blackest Night to target
     Delirium = 1972, // applied by Delirium to self
     Oblation = 2682, // applied by Oblation to target
     EnhancedDelirium = 3836, // applied by Delirium to self (Lv96+)
@@ -91,9 +91,9 @@ public enum SID : uint
     Reprisal = ClassShared.SID.Reprisal, // applied by Reprisal to target
 }
 
-public sealed class Definitions : IDisposable
+public sealed class Definitions : Defs
 {
-    public Definitions(ActionDefinitions d)
+    public override void Define(ActionDefinitions d)
     {
         d.RegisterSpell(AID.DarkForce, instantAnimLock: 3.86f); // animLock=3.860s?
         d.RegisterSpell(AID.HardSlash);
@@ -136,10 +136,8 @@ public sealed class Definitions : IDisposable
         Customize(d);
     }
 
-    public void Dispose() { }
-
     private void Customize(ActionDefinitions d)
     {
-        d.Spell(AID.Shadowstride)!.ForbidExecute = ActionDefinitions.DashToTargetCheck;
+        d.Spell(AID.Shadowstride)!.AllowExecute = ActionPredicate.AllowDashToTarget;
     }
 }

@@ -309,7 +309,7 @@ public abstract class BossModule : IDisposable
         // draw borders
         if (WindowConfig.ShowBorder)
         {
-            Arena.Border(haveRisks && WindowConfig.ShowBorderRisk ? Colors.Enemy : Colors.Border);
+            Arena.AddComplexPolygon(Bounds.Shape, haveRisks && WindowConfig.ShowBorderRisk ? Colors.Enemy : Colors.Border, 2f, false);
         }
 
         if (WindowConfig.ShowCardinals)
@@ -395,7 +395,7 @@ public abstract class BossModule : IDisposable
         if (Arena.Bounds.AllowObstacleMap)
         {
             var (entry, bitmap) = Obstacles.Find(new Vector3(Center.X, actor.PosRot.Y, Center.Z));
-            if (entry != null && bitmap != null)
+            if (entry != null && bitmap != null && bitmap.PixelSize == Bounds.MapResolution)
             {
                 var originCell = (Center - entry.Origin) / bitmap.PixelSize;
                 var originX = (int)originCell.X;
@@ -441,7 +441,7 @@ public abstract class BossModule : IDisposable
     protected virtual void UpdateModule() { }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    protected Actor? GetActor(uint enemy)
+    internal Actor? GetActor(uint enemy)
     {
         var b = Enemies(enemy);
         return b.Count != 0 ? b[0] : null;
@@ -549,7 +549,7 @@ public abstract class BossModule : IDisposable
     public static List<Actor> GetActiveActors(List<Actor> enemy)
     {
         var count = enemy.Count;
-        List<Actor> actors = new(count);
+        List<Actor> actors = [with(count)];
         for (var i = 0; i < count; ++i)
         {
             var e = enemy[i];
