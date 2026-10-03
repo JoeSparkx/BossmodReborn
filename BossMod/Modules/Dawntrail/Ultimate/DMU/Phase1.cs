@@ -253,7 +253,7 @@ sealed class WaveCannonTowers(BossModule module) : Components.CastTowers(module,
         {
             var count = Towers.Count;
             var towers = CollectionsMarshal.AsSpan(Towers);
-            for (var i = 0; i < count; i++)
+            for (var i = 0; i < count; ++i)
             {
                 towers[i].ForbiddenSoakers = Raid.WithSlot(false, true, true)
                     .WhereSlot(player => magicVulnerability[player] > Towers[i].Activation).Mask();
@@ -1466,7 +1466,8 @@ sealed class Gaze(BossModule module) : Components.GenericGaze(module)
     {
         if (state == (uint)Animations.EyeStart)
         {
-            _eye = [new Eye(actor.Position, WorldState.FutureTime(9.9d), inverted: actor.OID == (uint)OID.StatueYellowEye)];
+            var pos = actor.Position.Quantized();
+            _eye = [new Eye(pos, WorldState.FutureTime(9.9d), inverted: actor.OID == (uint)OID.StatueYellowEye, eyeCenter: IndicatorWorldPos(pos))];
         }
     }
 

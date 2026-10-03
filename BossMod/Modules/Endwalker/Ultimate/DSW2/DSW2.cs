@@ -21,7 +21,7 @@ sealed class P7AlternativeEnd(BossModule module) : Components.CastCounter(module
 [ModuleInfo(BossModuleInfo.Maturity.Verified, PrimaryActorOID = (uint)OID.BossP2, GroupType = BossModuleInfo.GroupType.CFC, GroupID = 788u, NameID = 11319u, PlanLevel = 90)]
 public sealed class DSW2(WorldState ws, Actor primary) : BossModule(ws, primary, BoundsCircle.Center, BoundsCircle)
 {
-    public static readonly ArenaBoundsCustom BoundsCircle = new([new Polygon(new(100f, 100f), 21f, 48)]) { IsCircle = true };
+    public static readonly ArenaBoundsCustom BoundsCircle = new([new Polygon(new(100f, 100f), 21f, 48)]);
 
     private Actor? _bossP3;
     private Actor? _leftEyeP4;
@@ -32,8 +32,9 @@ public sealed class DSW2(WorldState ws, Actor primary) : BossModule(ws, primary,
     private Actor? _bossP5;
     public Actor? _NidhoggP6;
     public Actor? _HraesvelgrP6;
+    public Actor? SerAdelphel;
+    public Actor? SerJanlenoux;
     private Actor? _bossP7;
-    public Actor? ArenaFeatures;
     public Actor? BossP3() => _bossP3;
     public Actor? LeftEyeP4() => _leftEyeP4;
     public Actor? RightEyeP4() => _rightEyeP4;
@@ -52,7 +53,8 @@ public sealed class DSW2(WorldState ws, Actor primary) : BossModule(ws, primary,
         switch (StateMachine.ActivePhaseIndex)
         {
             case 0:
-                ArenaFeatures ??= GetActor((uint)OID.ArenaFeatures);
+                SerAdelphel ??= GetActor((uint)OID.SerAdelphel);
+                SerJanlenoux ??= GetActor((uint)OID.SerJanlenoux);
                 break;
             case 1:
                 _bossP3 ??= GetActor((uint)OID.BossP3);

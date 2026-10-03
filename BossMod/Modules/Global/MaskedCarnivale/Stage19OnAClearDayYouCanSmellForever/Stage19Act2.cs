@@ -26,30 +26,13 @@ public enum SID : uint
 
 sealed class ExplosiveDehiscence(BossModule module) : Components.CastGaze(module, (uint)AID.ExplosiveDehiscence)
 {
-    public bool casting;
     public BitMask _blinded;
 
     public override void AddHints(int slot, Actor actor, TextHints hints)
     {
-        if (!_blinded[slot] && casting)
+        if (Eyes.Count != 0 && !_blinded[slot])
         {
             hints.Add("Cast Ink Jet on boss to get blinded!");
-        }
-    }
-
-    public override void OnCastStarted(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.Schizocarps)
-        {
-            casting = true;
-        }
-    }
-
-    public override void OnCastFinished(Actor caster, ActorCastInfo spell)
-    {
-        if (spell.Action.ID == (uint)AID.ExplosiveDehiscence)
-        {
-            casting = false;
         }
     }
 
@@ -57,7 +40,7 @@ sealed class ExplosiveDehiscence(BossModule module) : Components.CastGaze(module
     {
         if (status.ID == (uint)SID.Blind)
         {
-            _blinded[Raid.FindSlot(actor.InstanceID)] = true;
+            _blinded.Set(Raid.FindSlot(actor.InstanceID));
         }
     }
 
@@ -65,7 +48,7 @@ sealed class ExplosiveDehiscence(BossModule module) : Components.CastGaze(module
     {
         if (status.ID == (uint)SID.Blind)
         {
-            _blinded[Raid.FindSlot(actor.InstanceID)] = false;
+            _blinded.Clear(Raid.FindSlot(actor.InstanceID));
         }
     }
 
@@ -97,7 +80,7 @@ sealed class Reflect(BossModule module) : BossComponent(module)
         }
     }
 
-    public override void AddGlobalHints(GlobalHints hints)
+    public override void AddGlobalHints(Actor actor, GlobalHints hints)
     {
         if (casting)
         {
@@ -136,20 +119,11 @@ sealed class OffalBreathVoidzone(BossModule module) : Components.VoidzoneAtCastT
     }
 }
 
-sealed class Hints(BossModule module) : BossComponent(module)
-{
-    public override void AddGlobalHints(GlobalHints hints)
-    {
-        hints.Add("Same as first act, but this time the boss will cast a gaze from all directions.\nThe easiest counter for this is to blind yourself by casting Ink Jet on the\nboss after it casted Schizocarps.\nThe Final Sting combo window opens at around 75% health.\n(Off-guard->Bristle->Moonflute->Final Sting)");
-    }
-}
-
 sealed class Stage19Act2States : StateMachineBuilder
 {
     public Stage19Act2States(BossModule module) : base(module)
     {
         TrivialPhase()
-            .DeactivateOnEnter<Hints>()
             .ActivateOnEnter<Reflect>()
             .ActivateOnEnter<BadBreath>()
             .ActivateOnEnter<VineProbe>()
@@ -159,11 +133,15 @@ sealed class Stage19Act2States : StateMachineBuilder
     }
 }
 
-[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 629, NameID = 8117, SortOrder = 2)]
-public sealed class Stage19Act2 : BossModule
+[ModuleInfo(BossModuleInfo.Maturity.Verified, Contributors = "Malediktus", GroupType = BossModuleInfo.GroupType.MaskedCarnivale, GroupID = 629u, NameID = 8117u, SortOrder = 2)]
+public sealed class Stage19Act2(WorldState ws, Actor primary) : BossModule(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
 {
-    public Stage19Act2(WorldState ws, Actor primary) : base(ws, primary, Layouts.ArenaCenter, Layouts.CircleSmall)
-    {
-        ActivateComponent<Hints>();
-    }
+    private readonly string[] _prePullHints =
+    [
+        "Same as first act, but this time the boss will cast a gaze from all directions.",
+        "The easiest counter for this is to blind yourself by casting Ink Jet on the boss after it casted Schizocarps.",
+        "The Final Sting combo window opens at around 75% health. (Off-guard->Bristle->Moonflute->Final Sting)"
+    ];
+
+    public override string[] PrePullHints => _prePullHints;
 }

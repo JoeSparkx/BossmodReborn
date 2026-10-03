@@ -61,6 +61,7 @@ sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, 
             _puddles.Add(caster.Position);
         }
     }
+
     public override void OnActorDeath(Actor actor)
     {
         if (actor.OID == (uint)OID.AquaSpearVoidzone)
@@ -68,6 +69,7 @@ sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, 
             _puddles.Clear();
         }
     }
+
     public override void AddAIHints(int slot, Actor actor, PartyRolesConfig.Assignment assignment, AIHints hints)
     {
         // want to avoid getting knocked back into and knocked back over puddles
@@ -83,7 +85,7 @@ sealed class TidalWave(BossModule module) : Components.SimpleKnockbacks(module, 
         var kb = ActiveKnockbacks(slot, actor)[0];
         var origin = kb.Origin;
         var dir = (origin - Arena.Center).Normalized();
-        for (var i = 0; i < len; i++)
+        for (var i = 0; i < len; ++i)
         {
             var puddle = puddles[i];
             hints.AddForbiddenZone(new SDRect(puddle, dir, 30f, 4f, 4f));

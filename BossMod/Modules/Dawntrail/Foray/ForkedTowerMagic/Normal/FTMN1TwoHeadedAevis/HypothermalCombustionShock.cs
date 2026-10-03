@@ -26,12 +26,12 @@ sealed class HypothermalCombustionShock(BossModule module) : Components.GenericA
 
     public override void OnCastStarted(Actor caster, ActorCastInfo spell)
     {
-        if (spell.Action.ID == (uint)AID.ThunderfrostTempest)
+        if (spell.Action.ID == (uint)AID.ThunderfrostTempestVisual)
         {
             // x2 at same time, before orbs cast their own spell
             var act = Module.CastFinishAt(spell, 2.7d);
             var count = actors.Count;
-            for (var i = 0; i < count; i++)
+            for (var i = 0; i < count; ++i)
             {
                 ref var actor = ref actors.Ref(i);
                 _aoes.Add(new(shape, actor.Position, activation: act));
@@ -60,7 +60,7 @@ sealed class HypothermalCombustionShock(BossModule module) : Components.GenericA
             var act = Module.CastFinishAt(spell, 2.4d);
             var count = actors.Count;
 
-            for (var i = 0; i < count; i++)
+            for (var i = 0; i < count; ++i)
             {
                 ref var actor = ref actors.Ref(i);
                 if (actor.OID == orbId && shape.Check(pos, actor))
@@ -99,6 +99,11 @@ sealed class HypothermalCombustionShock(BossModule module) : Components.GenericA
         if (knockbacks == null || knockbacks.ActiveKnockbacks(slot, actor).Length == 0)
         {
             base.AddAIHints(slot, actor, assignment, hints);
+            if (_aoes.Count != 0)
+            {
+                // avoid standing on edge to look less sus
+                hints.AddForbiddenZone(new SDInvertedRect(Arena.Center, 0f.Degrees(), 18f, 18f, 18f));
+            }
         }
     }
 }

@@ -86,8 +86,7 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
                 return;
             }
             // knockback can happen by itself, poison breath, or clusters
-            // rect/circ slightly larger to avoid sus knockback
-            
+            // rect/circ slightly larger to avoid sus knockback            
             if (!IsImmune(slot, kb.Activation))
             {
                 var aoeinfo = GetCircleAOEInfo(slot, actor);
@@ -104,28 +103,6 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
             }
         }
     }
-
-    private sealed class SDKnockbackInAABBSquareFixedDirectionIntoCircle(WPos Center, WDir Direction, float HalfWidth, WPos CircleOrigin, float Radius) : ShapeDistance
-    {
-        private readonly WPos center = Center;
-        private readonly WDir direction = Direction; // direction includes distance, not normalized
-        private readonly float halfWidth = HalfWidth;
-        private readonly WPos circleOrigin = CircleOrigin;
-        private readonly float radius = Radius;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override bool Contains(in WPos p)
-        {
-            var projected = p + direction;
-            return !projected.InSquare(center, halfWidth) || !projected.InCircle(circleOrigin, radius);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override float Distance(in WPos p) => Contains(p) ? 0f : 1f;
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public override bool RowIntersectsShape(WPos rowStart, WDir dx, float width, float cushion = default) => true;
-    }
     private (WPos[] Origins, float Radius) GetCircleAOEInfo(int slot, Actor actor)
     {
         // poison never happens at same time as ice/lightning
@@ -133,7 +110,7 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
         var radius = float.MinValue;
         var aoes = lip.ActiveAOEs(slot, actor);
         var count = aoes.Length;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < count; ++i)
         {
             var aoe = aoes[i];
             var shape = aoe.Shape as AOEShapeCircle;
@@ -143,7 +120,7 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
 
         var orbs = hyposhock.ActiveAOEs(slot, actor);
         var orbCount = orbs.Length;
-        for (var i = 0; i < orbCount; i++)
+        for (var i = 0; i < orbCount; ++i)
         {
             var aoe = orbs[i];
             var shape = aoe.Shape as AOEShapeCircle;
@@ -158,7 +135,7 @@ sealed class HissingReprise(BossModule module) : Components.GenericKnockback(mod
         var aoes = GetCircleAOEInfo(slot, actor);
         var count = aoes.Origins.Length;
         var radius = aoes.Radius;
-        for (var i = 0; i < count; i++)
+        for (var i = 0; i < count; ++i)
         {
             var origin = aoes.Origins[i];
             if (to.InCircle(origin, radius))
