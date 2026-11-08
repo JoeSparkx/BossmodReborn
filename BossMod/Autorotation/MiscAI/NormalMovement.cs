@@ -1,4 +1,4 @@
-﻿using BossMod.Autorotation.xan;
+using BossMod.Autorotation.xan;
 using BossMod.Pathfinding;
 
 namespace BossMod.Autorotation.MiscAI;
@@ -7,7 +7,7 @@ public sealed class NormalMovement : RotationModule
 {
     public enum Track { Destination, Range, Cast, SpecialModes, ForbiddenZoneCushion, DelayMovement, SeparateDodgeDelay, DodgeDelayMovement }
     public enum DestinationStrategy { None, Pathfind, Explicit }
-    public enum RangeStrategy { Any, MaxRange, GreedGCDExplicit, GreedLastMomentExplicit, GreedAutomatic }
+    public enum RangeStrategy { Any, MaxRange, GreedGCDExplicit, GreedLastMomentExplicit, GreedAutomatic, Drag }
     public enum CastStrategy { Leeway, Explicit, Greedy, FinishMove, DropMove, FinishInstants, DropInstants }
     public enum ForbiddenZoneCushionStrategy { None, Small, Medium, Large }
     public enum SpecialModesStrategy { Automatic, Ignore }
@@ -44,7 +44,7 @@ public sealed class NormalMovement : RotationModule
             .AddOption(RangeStrategy.GreedGCDExplicit, "Stay within effective range until last GCD; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
             .AddOption(RangeStrategy.GreedLastMomentExplicit, "Stay within effective range until last possible moment; ensure destination is reached by the plan entry end", supportedTargets: ActionTargets.Hostile)
             .AddOption(RangeStrategy.GreedAutomatic, "Stay within effective range as long as possible; try to ensure safety is reached before mechanic resolves", supportedTargets: ActionTargets.Hostile)
-            /*.AddOption(RangeStrategy.Drag, "Drag", "Drag the target to specified spot, but maintain gcd uptime", supportedTargets: ActionTargets.Hostile)*/; // TODO
+            .AddOption(RangeStrategy.Drag, "Drag", supportedTargets: ActionTargets.Hostile);
 
         res.Define(Track.Cast).As<CastStrategy>("Cast", "Cast", 10)
             .AddOption(CastStrategy.Leeway, "Continue slidecasting as long as there is enough time to get to safety")
@@ -82,6 +82,7 @@ public sealed class NormalMovement : RotationModule
     public const float MeleeRange = 2.6f; // Note: melee range is always hitbox radius + 2.6 for auto attacks, doesn't matter if skills have 3 range...
     public const float CasterRange = 25f;
 
+    private readonly AI.CastSettleHold _castHold = new();
     private Task<NavigationDecision> _decisionTask = Task.FromResult(default(NavigationDecision));
     private NavigationDecision _lastDecision;
 
@@ -122,6 +123,30 @@ public sealed class NormalMovement : RotationModule
         if (Hints.ForcedMovement != null)
             return;
 
+        // use the live client cast state: worldstate CastInfo can lag behind a cast that an external plugin (e.g. RSR) has just started, letting us start a move that interrupts it
+        // worldstate is kept as a fallback for casts the action manager doesn't track (e.g. interactions)
+        var amex = ActionManagerEx.Instance;
+        var liveCast = amex != null && amex.MoveMightInterruptCast && amex.CastTimeRemaining > 0f;
+        var worldCast = Player.CastInfo is { EventHappened: false } ci ? ci : null;
+        var castInProgress = liveCast || worldCast != null;
+        var castRemaining = Math.Max(liveCast ? amex!.CastTimeRemaining : 0f, worldCast != null ? (float)worldCast.RemainingTime : 0f);
+
+        UpdateMovement(strategy, primaryTarget, castInProgress, castRemaining);
+
+        var moving = Hints.ForcedMovement != null;
+        if (_castHold.Update(World.CurrentTime, moving, moving && castInProgress, out var holdStarted))
+        {
+            if (holdStarted)
+            {
+                Service.Log($"[NormalMovement] Movement will interrupt cast: maxCastTime={Hints.MaxCastTime:f2}, castRemaining={castRemaining:f2}, dist={Hints.ForcedMovement!.Value.Length():f2} -> holding casts");
+            }
+            Hints.HoldCasts = true;
+            Hints.MaxCastTime = 0f;
+        }
+    }
+
+    private void UpdateMovement(StrategyValues strategy, Actor? primaryTarget, bool castInProgress, float castRemaining)
+    {
         // lots of assumptions made in this module are broken by being in flight (or diving)
         // e.g. being inside an obstacle is fine, AOEs may not reach the player depending on vertical distance, etc
         if (World.Client.Flying)
@@ -168,19 +193,8 @@ public sealed class NormalMovement : RotationModule
 
         if (Hints.InteractWithTarget != null)
         {
-            var targetPos = Hints.InteractWithTarget.Position;
             // strongly prefer moving towards interact target
-            Hints.GoalZones.Add(p =>
-            {
-                var lengthSq = (p - targetPos).LengthSq();
-                const float interactRange1 = 2.09f * 2.09f;
-                const float interactRange2 = 3.5f * 3.5f;
-
-                // 99% of eventobjects have an interact range of 3.5y, while the rest have a range of 2.09y
-                // checking only for the shorter range here would be fine in the vast majority of cases, but it can break interact pathfinding in the case that the target object is partially covered by a forbidden zone with a radius between 2.1 and 3.5
-                // this is specifically an issue in the metal gear thancred solo duty in endwalker
-                return lengthSq <= interactRange1 ? 101f : lengthSq <= interactRange2 ? 100f : 0f;
-            });
+            Hints.GoalZones.Add(AIHints.GoalProximity(Hints.InteractWithTarget.Position, 5f, 100f));
         }
 
         // fallback so that we can automatically start some quest battles xddd (the RP rotation is a component on the module, which isn't active until we pull, so no goal zone)
@@ -191,8 +205,11 @@ public sealed class NormalMovement : RotationModule
 
         if (Hints.FindEnemy(primaryTarget) is { } enemy && enemy.Actor.TargetID == Player.InstanceID)
         {
-            if (enemy.CanMove && enemy.DesiredPosition is { } pos)
-                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, pos, Player, GCD, 0.5f));
+            if (enemy.CanMove && (enemy.DesiredPosition is { } || strategy.Option(Track.Range).As<RangeStrategy>() == RangeStrategy.Drag))
+            {
+                var center = Bossmods.LoadedModules.Count != 0 ? Bossmods.LoadedModules[0].Arena.Center : new WPos(100f, 100f);
+                Hints.GoalZones.Add(Hints.PullTargetToLocation(enemy.Actor, enemy.DesiredPosition ?? center, Player, GCD, 0.5f));
+            }
 
             if (enemy.DesiredRotation is { } rot)
             {
@@ -367,7 +384,7 @@ public sealed class NormalMovement : RotationModule
             // leeway/slidecasting entirely, since almost every cast starts with some non-urgent repositioning pending.
             // the dedicated CastStrategy.Leeway handling below already forces movement (and cancels the cast) when
             // there genuinely isn't enough leeway left to both finish the cast and reach the destination in time.
-            var allowMovement = Player.CastInfo == null || Player.CastInfo.EventHappened || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
+            var allowMovement = !castInProgress || castStrategy is CastStrategy.DropMove or CastStrategy.DropInstants;
             Hints.ForcedMovement = allowMovement ? dir.ToVec3() : default;
         }
 
@@ -380,9 +397,9 @@ public sealed class NormalMovement : RotationModule
         };
         Hints.MaxCastTime = Math.Max(0, Math.Min(Hints.MaxCastTime, maxCastTime));
         Hints.ForceCancelCastOther |= castStrategy == CastStrategy.DropMove;
-        if (castStrategy is CastStrategy.Leeway && Player.CastInfo is { } castInfo)
+        if (castStrategy is CastStrategy.Leeway && castInProgress)
         {
-            var effectiveCastRemaining = Math.Max(0, castInfo.RemainingTime - 0.5d);
+            var effectiveCastRemaining = Math.Max(0f, castRemaining - 0.5f);
             if (Hints.MaxCastTime < effectiveCastRemaining)
             {
                 Hints.ForceCancelCastOther = true;

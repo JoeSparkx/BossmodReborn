@@ -124,7 +124,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         _zonemod = new(_ws);
         _hintsBuilder = new(_ws, _bossmod, _zonemod, _rsr);
         _movementOverride = new(_dalamud);
-        _amex = new(_ws, _hints, _movementOverride);
+        _amex = new(_ws, _hints, _movementOverride, _rsr);
         _wsSync = new(_ws, _amex);
         _rotation = new(_rotationDB, _bossmod, _hints);
         _ai = new(_rotation, _amex, _movementOverride);
@@ -145,6 +145,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
         config.Modified.ExecuteAndSubscribe(() => _wndReplay.UpdateLogDirectory());
         _wndRotation = new(_rotation, _amex, () => OpenConfigUI("Autorotation presets"));
         _wndDebug = new(_ws, _rotation, _zonemod, _amex, _movementOverride, _hintsBuilder, _dalamud, _rsr);
+        RebornUI.MaterialUI.Start(_dalamud, _ws, _rotationDB, _rotation, _ai, new DirectoryInfo(replayDir));
 
         _dalamud.UiBuilder.DisableAutomaticUiHide = true;
         _dalamud.UiBuilder.Draw += DrawUI;
@@ -162,6 +163,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
             _worldOverlayNode?.Dispose();
             _worldOverlayNode = null;
             Dx11ArenaRenderer.Shutdown();
+            RebornUI.MaterialUI.Stop();
         });
         ReplayVisualization.GaugeVisualizer.Dispose();
         _wndDebug.Dispose();
@@ -301,6 +303,8 @@ public sealed class Plugin : IAsyncDalamudPlugin
 
     private void OpenConfigUI(string showTab = "")
     {
+        if (RebornUI.MaterialUI.OpenSettings(showTab))
+            return;
         _configUI.ShowTab(showTab);
         _ = new UISimpleWindow("BossModReborn", _configUI.Draw, true, new(300, 300));
     }
@@ -308,7 +312,7 @@ public sealed class Plugin : IAsyncDalamudPlugin
     private void DrawUI()
     {
         var tsStart = DateTime.Now;
-        var moveImminent = _movementOverride.IsMoveRequested() && (!ActionManagerEx.Config.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
+        var moveImminent = _movementOverride.IsMoveRequested() && (!_amex.PreventMovingWhileCasting || _movementOverride.IsForceUnblocked());
 
         _dtr.Update();
         Camera.Instance?.Update();

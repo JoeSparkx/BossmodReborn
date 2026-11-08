@@ -27,8 +27,8 @@ public sealed class AIHints
         //public float TimeToKill;
         public float AttackStrength = 0.05f; // target's predicted HP percent is decreased by this amount (0.05 by default)
         public bool CanMove = true;
-        public WPos? DesiredPosition = actor.Position; // tank AI will try to move enemy to this position
-        public Angle? DesiredRotation = actor.Rotation; // tank AI will try to rotate enemy to this angle
+        public WPos? DesiredPosition; // tank AI will try to move enemy to this position
+        public Angle? DesiredRotation; // tank AI will try to rotate enemy to this angle
         public float TankDistance = 2f; // enemy will start moving if distance between hitboxes is bigger than this
         public bool ShouldBeTanked = shouldBeTanked; // tank AI will try to tank this enemy
         public bool PreferProvoking; // tank AI will provoke enemy if not targeted
@@ -169,6 +169,9 @@ public sealed class AIHints
 
     public bool ForceCancelCastMechanic;
 
+    // set by the active movement system while settling after a move that interrupted a cast (see CastSettleHold); external rotations should not start casts
+    public bool HoldCasts;
+
     // actions that we want to be executed, gathered from various sources (manual input, autorotation, planner, ai, modules, etc.)
     public readonly ActionQueue ActionsToExecute = new();
 
@@ -210,6 +213,7 @@ public sealed class AIHints
         MaxCastTime = float.MaxValue;
         ForceCancelCastOther = false;
         ForceCancelCastMechanic = false;
+        HoldCasts = false;
         ActionsToExecute.Clear();
         StatusesToCancel.Clear();
         WantJump = false;
